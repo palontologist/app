@@ -15,8 +15,19 @@ export async function GET() {
       return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
     }
     
-    // Get the raw profile data directly from DB
-    const rows = await db.select().from(userProfiles).where(eq(userProfiles.userId, userId))
+    // Get the raw profile data directly from DB. Wrap in try/catch because
+    // DB initialization may throw when environment variables (TURSO_DATABASE_URL)
+    // are not provided during build-time page data collection.
+    let rows: any[] = []
+    try {
+      rows = await db.select().from(userProfiles).where(eq(userProfiles.userId, userId))
+    } catch (dbErr) {
+      console.error('Debug endpoint DB error:', dbErr)
+      return NextResponse.json(
+        { error: 'Database not initialized', detail: String(dbErr) },
+        { status: 500 }
+      )
+    }
     
     // Return the raw profile data for inspection
     return NextResponse.json({
