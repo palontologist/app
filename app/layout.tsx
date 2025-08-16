@@ -2,10 +2,7 @@ import type { Metadata } from 'next'
 import { GeistSans } from 'geist/font/sans'
 import { GeistMono } from 'geist/font/mono'
 import './globals.css'
-import {
-  ClerkProvider,
- 
-} from '@clerk/nextjs'
+import ClerkProviderWrapper from '@/components/clerk-provider-wrapper'
 
 
 export const metadata: Metadata = {
@@ -19,10 +16,12 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode
 }>) {
+  const publishableKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY || null
+
   return (
-      <ClerkProvider>
-    <html lang="en">
-      <head>
+    <ClerkProviderWrapper publishableKey={publishableKey}>
+      <html lang="en">
+        <head>
         <style>{`
 html {
   font-family: ${GeistSans.style.fontFamily};
@@ -30,11 +29,11 @@ html {
   --font-mono: ${GeistMono.variable};
 }
         `}</style>
-      </head>
-      <body>
-                
-      {children}</body>
-    </html>
-      </ClerkProvider>
+        </head>
+        <body>
+          {children}
+        </body>
+      </html>
+    </ClerkProviderWrapper>
   )
 }
