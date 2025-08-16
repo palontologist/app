@@ -157,7 +157,11 @@ export default function SimpleAnalytics() {
             <DialogHeader>
               <DialogTitle>Add Calendar Event</DialogTitle>
             </DialogHeader>
-            <form action={handleCreateEvent} className="grid gap-4">
+            <form onSubmit={async (e) => {
+              e.preventDefault()
+              const formData = new FormData(e.currentTarget)
+              await handleCreateEvent(formData)
+            }} className="grid gap-4">
               <div className="grid gap-2">
                 <Label htmlFor="event-title">Event Title</Label>
                 <Input id="event-title" name="title" placeholder="Team meeting" required />

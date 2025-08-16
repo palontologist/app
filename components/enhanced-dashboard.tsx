@@ -15,6 +15,20 @@ import { getGoals } from "@/app/actions/goals"
 import { getUser } from "@/app/actions/user"
 import type { Task as TaskType, Goal as GoalType, User as UserType } from "@/lib/types"
 
+interface ApiGoalType {
+  id: number
+  user_id: string
+  title: string
+  description: string | null
+  target_value: number | null
+  current_value: number | null
+  unit: string | null
+  category: string | null
+  deadline: Date | null
+  created_at: Date
+  updated_at: Date
+}
+
 export default function EnhancedDashboard() {
   const [tasks, setTasks] = React.useState<TaskType[]>([])
   const [goals, setGoals] = React.useState<GoalType[]>([])
@@ -32,9 +46,55 @@ export default function EnhancedDashboard() {
     try {
       const [tasksResult, goalsResult, userResult] = await Promise.all([getTasks(), getGoals(), getUser()])
 
-      if (tasksResult.success) setTasks(tasksResult.tasks)
-      if (goalsResult.success) setGoals(goalsResult.goals)
-      if (userResult.success && userResult.user) setUser(userResult.user)
+      if (tasksResult.success) {
+        console.log("Tasks loaded:", tasksResult.tasks)
+        setTasks(tasksResult.tasks)
+      }
+      
+      if (goalsResult.success) {
+        // Filter out the mission / North Star goal from the regular goals list.
+        const missionTitle = userResult && userResult.success && userResult.user ? userResult.user.mission : null
+        
+        // Debug logging for mission
+        console.log("Dashboard - User result:", userResult);
+        console.log("Dashboard - Mission title:", missionTitle);
+        console.log("Dashboard - Mission title type:", typeof missionTitle);
+        
+        const filtered = (goalsResult.goals || []).filter((g) => {
+          if (!g) return false
+          // If the goal matches the user's mission text or is explicitly marked as North Star, exclude it
+          if (missionTitle && g.title && g.title.toLowerCase().trim() === missionTitle.toLowerCase().trim()) return false
+          if (g.description && typeof g.description === "string" && g.description.toLowerCase().includes("north star")) return false
+          return true
+        })
+        setGoals(filtered)
+      }
+      
+      if (userResult.success && userResult.user) {
+        console.log("Dashboard - Setting user:", userResult.user);
+        console.log("Dashboard - User mission:", userResult.user.mission);
+        console.log("Dashboard - User mission type:", typeof userResult.user.mission);
+        console.log("Dashboard - Raw mission value:", JSON.stringify(userResult.user.mission));
+        console.log("Dashboard - Mission display in JSX:", 
+          userResult.user.mission ? 
+          `Will show: "${userResult.user.mission}"` : 
+          "Will show: \"Define your mission to get started\"");
+        
+        const mappedUser = {
+          ...userResult.user,
+          // Ensure these are properly set for UI display
+          id: 1, // Set a default ID since our UI expects it
+          email: userResult.user.userId,
+          world_vision: userResult.user.worldVision,
+          focus_areas: userResult.user.focusAreas,
+          created_at: userResult.user.createdAt,
+          updated_at: userResult.user.updatedAt,
+          // Explicitly ensure mission is a string
+          mission: userResult.user.mission ? String(userResult.user.mission) : null
+        };
+        
+        setUser(mappedUser as UserType)
+      }
     } catch (error) {
       console.error("Failed to load data:", error)
     } finally {
@@ -44,8 +104,14 @@ export default function EnhancedDashboard() {
 
   const handleToggleTask = async (taskId: number) => {
     const result = await toggleTaskCompletion(taskId)
-    if (result.success) {
-      setTasks((prev) => prev.map((t) => (t.id === taskId ? result.task : t)))
+    if (result.success && result.task) {
+      // Map response to match expected Task type
+      const updatedTask = {
+        ...result.task,
+        user_id: Number(result.task.user_id)
+      };
+      
+      setTasks((prev) => prev.map((t) => (t.id === taskId ? updatedTask as TaskType : t)))
     }
   }
 
@@ -127,7 +193,9 @@ export default function EnhancedDashboard() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-sm text-[#111827]">{user?.mission || "Define your mission to get started"}</p>
+          <p className="text-sm text-[#111827]">
+            {user?.mission || "Define your mission to get started"}
+          </p>
         </CardContent>
       </Card>
 

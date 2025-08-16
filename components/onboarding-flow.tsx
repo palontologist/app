@@ -8,7 +8,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
-import { updateUser } from "@/app/actions/user"
+import { completeOnboarding } from "@/app/actions/onboarding"
+import { SignedIn, SignedOut, SignInButton } from "@clerk/nextjs"
 
 type OnboardingStep = "welcome" | "mission" | "vision" | "goals" | "complete"
 
@@ -30,18 +31,16 @@ export default function OnboardingFlow() {
       formData.append("worldVision", worldVision)
       formData.append("focusAreas", goals)
 
-      const result = await updateUser(formData)
+      const result = await completeOnboarding(formData)
 
       if (result.success) {
-        router.push("/dashboard")
+        router.push(result.redirect || "/dashboard")
       } else {
-        console.error("Failed to save user data:", result.error)
-        // Still redirect to dashboard for demo purposes
+        console.error("Failed to complete onboarding:", result.error)
         router.push("/dashboard")
       }
     } catch (error) {
-      console.error("Error saving user data:", error)
-      // Still redirect to dashboard for demo purposes
+      console.error("Error completing onboarding:", error)
       router.push("/dashboard")
     } finally {
       setIsLoading(false)
@@ -50,6 +49,20 @@ export default function OnboardingFlow() {
 
   return (
     <div className="mx-auto max-w-2xl px-4 pb-16 pt-8">
+      <SignedOut>
+        <Card>
+          <CardHeader className="text-center">
+            <CardTitle className="text-xl">Sign in to start onboarding</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4 text-center">
+            <p className="text-sm text-[#6B7280]">You'll be redirected back here to finish setting up your profile.</p>
+            <SignInButton mode="modal">
+              <Button className="text-white bg-[#28A745] hover:bg-[#23923d]">Sign In</Button>
+            </SignInButton>
+          </CardContent>
+        </Card>
+      </SignedOut>
+      <SignedIn>
       {/* Progress indicator */}
       <div className="mb-8 flex items-center justify-center">
         <div className="flex items-center gap-2">
@@ -66,7 +79,7 @@ export default function OnboardingFlow() {
         </div>
       </div>
 
-      {step === "welcome" && (
+  {step === "welcome" && (
         <Card>
           <CardHeader className="text-center">
             <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-[#28A745]/10">
@@ -94,7 +107,7 @@ export default function OnboardingFlow() {
         </Card>
       )}
 
-      {step === "mission" && (
+  {step === "mission" && (
         <Card>
           <CardHeader className="text-center">
             <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-[#28A745]/10">
@@ -139,7 +152,7 @@ export default function OnboardingFlow() {
         </Card>
       )}
 
-      {step === "vision" && (
+  {step === "vision" && (
         <Card>
           <CardHeader className="text-center">
             <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-[#28A745]/10">
@@ -220,7 +233,7 @@ export default function OnboardingFlow() {
         </Card>
       )}
 
-      {step === "goals" && (
+  {step === "goals" && (
         <Card>
           <CardHeader className="text-center">
             <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-[#28A745]/10">
@@ -259,7 +272,7 @@ export default function OnboardingFlow() {
         </Card>
       )}
 
-      {step === "complete" && (
+  {step === "complete" && (
         <Card>
           <CardHeader className="text-center">
             <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-[#28A745]/10">
@@ -292,6 +305,7 @@ export default function OnboardingFlow() {
           </CardContent>
         </Card>
       )}
+      </SignedIn>
     </div>
   )
 }

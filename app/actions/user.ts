@@ -1,16 +1,47 @@
 "use server"
 
-import { mockData } from "@/lib/types"
+import { auth } from "@clerk/nextjs/server"
+import { db, userProfiles, now } from "@/lib/db"
+import { eq } from "drizzle-orm"
 import { revalidatePath } from "next/cache"
+
+// Shape returned to client (camelCase)
+function mapProfile(row: typeof userProfiles.$inferSelect | undefined) {
+  if (!row) return null
+  
+  // Make sure mission and worldVision are properly cast to strings if they exist
+  const mission = row.mission ? String(row.mission) : null;
+  const worldVision = row.worldVision ? String(row.worldVision) : null;
+  
+  return {
+    userId: row.userId,
+    name: row.name,
+    mission,
+    worldVision,
+    focusAreas: row.focusAreas,
+    onboarded: Boolean(row.onboarded),
+    createdAt: new Date(row.createdAt),
+    updatedAt: new Date(row.updatedAt),
+  }
+}
 
 export async function getUser() {
   try {
-    const user = mockData.users[0] // Demo user
-    if (!user) {
-      return { success: false, error: "User not found", user: null }
+    const session = await auth()
+    const userId = session.userId
+    
+    if (!userId) {
+      return { success: false, error: "Unauthenticated", user: null }
     }
-
-    return { success: true, user }
+    
+    const rows = await db.select().from(userProfiles).where(eq(userProfiles.userId, userId))
+    
+    if (rows.length > 0) {
+      const mappedProfile = mapProfile(rows[0])
+      return { success: true, user: mappedProfile }
+    } else {
+      return { success: true, user: null }
+    }
   } catch (error) {
     console.error("Failed to get user:", error)
     return { success: false, error: "Failed to load user", user: null }
@@ -19,26 +50,39 @@ export async function getUser() {
 
 export async function updateUser(formData: FormData) {
   try {
-    const name = formData.get("name") as string
-    const mission = formData.get("mission") as string
-    const worldVision = formData.get("worldVision") as string
-    const focusAreas = formData.get("focusAreas") as string
+    const session = await auth()
+    const userId = session.userId
+    if (!userId) return { success: false, error: "Unauthenticated" }
 
-    const user = mockData.users[0]
-    if (!user) {
-      return { success: false, error: "User not found" }
+    const name = (formData.get("name") as string) || null
+    const mission = (formData.get("mission") as string) || null
+    const worldVision = (formData.get("worldVision") as string) || null
+    const focusAreas = (formData.get("focusAreas") as string) || null
+
+    const existing = await db.select().from(userProfiles).where(eq(userProfiles.userId, userId))
+    const timestamp = new Date()
+    if (existing.length === 0) {
+      await db.insert(userProfiles).values({
+        userId,
+        name,
+        mission,
+        worldVision,
+        focusAreas,
+        onboarded: true,
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      })
+    } else {
+      await db
+        .update(userProfiles)
+        .set({ name, mission, worldVision, focusAreas, onboarded: true, updatedAt: timestamp })
+        .where(eq(userProfiles.userId, userId))
     }
 
-    // Update user data
-    user.name = name
-    user.mission = mission
-    user.world_vision = worldVision
-    user.focus_areas = focusAreas
-    user.updated_at = new Date()
-
+    const rows = await db.select().from(userProfiles).where(eq(userProfiles.userId, userId))
     revalidatePath("/dashboard")
     revalidatePath("/impact")
-    return { success: true, user }
+    return { success: true, user: mapProfile(rows[0]) }
   } catch (error) {
     console.error("Failed to update user:", error)
     return { success: false, error: "Failed to update user" }

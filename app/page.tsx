@@ -1,13 +1,24 @@
-"use client"
-
 import Link from "next/link"
 import { Inter } from "next/font/google"
 import { ArrowRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { auth } from "@clerk/nextjs/server"
+import { db, userProfiles } from "@/lib/db"
+import { eq } from "drizzle-orm"
+import { redirect } from "next/navigation"
 
 const inter = Inter({ subsets: ["latin"] })
 
-export default function OnboardingPage() {
+export default async function LandingPage() {
+  const { userId } = await auth()
+  if (userId) {
+    const rows = await db.select().from(userProfiles).where(eq(userProfiles.userId, userId))
+    if (rows[0]?.onboarded) {
+      redirect("/dashboard")
+    } else {
+      redirect("/onboarding")
+    }
+  }
   return (
     <main
       className={`${inter.className} relative min-h-dvh bg-white text-[#1A1A1A]`}
@@ -36,7 +47,7 @@ export default function OnboardingPage() {
         </p>
 
         <div className="mt-8 space-y-3">
-          <Link href="/onboarding" aria-label="Get Started with greta">
+          <Link href="/sign-in?redirect_url=/onboarding" aria-label="Get Started with greta">
             <Button
               className="h-11 rounded-full px-6 text-white bg-[#28A745] hover:bg-[#23923d] transition-colors w-full"
               size="lg"

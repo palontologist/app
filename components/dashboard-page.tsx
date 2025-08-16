@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Checkbox } from "@/components/ui/checkbox"
 import CircularProgress from "@/components/circular-progress"
 import AddTaskDialog from "@/components/add-task-dialog"
+import { getUser } from "@/app/actions/user"
 
 type Task = {
   id: string
@@ -30,11 +31,50 @@ export default function DashboardPage() {
   const [northStar, setNorthStar] = React.useState("")
 
   React.useEffect(() => {
-    const savedMission = localStorage.getItem("greta-mission")
-    if (savedMission) {
-      setNorthStar(savedMission)
-    } else {
-      setNorthStar("Empower 10,000 founders to ship mission-aligned work every day.")
+    let cancelled = false
+
+    async function loadProfile() {
+      try {
+        // Prefer server-side persisted profile mission/worldVision
+        const res = await getUser()
+        console.log("Dashboard loadProfile response:", res)
+        
+        if (!cancelled && res && res.success && res.user) {
+          console.log("User profile found:", res.user)
+          const mission = res.user.mission || res.user.worldVision || null
+          console.log("Mission from profile:", mission)
+          
+          if (mission) {
+            console.log("Setting North Star to:", mission)
+            setNorthStar(mission)
+            return
+          }
+        }
+
+        // Fallback to localStorage or default
+        const savedMission = localStorage.getItem("greta-mission")
+        console.log("Local storage mission:", savedMission)
+        
+        if (savedMission) {
+          console.log("Setting North Star from localStorage:", savedMission)
+          setNorthStar(savedMission)
+        } else {
+          console.log("Using default North Star text")
+          setNorthStar("Define your mission to get started")
+        }
+      } catch (err) {
+        console.error("Error loading profile:", err)
+        // On error, fall back safely
+        const savedMission = localStorage.getItem("greta-mission")
+        if (savedMission) setNorthStar(savedMission)
+        else setNorthStar("Define your mission to get started")
+      }
+    }
+
+    loadProfile()
+
+    return () => {
+      cancelled = true
     }
   }, [])
 
@@ -82,6 +122,15 @@ export default function DashboardPage() {
         </CardHeader>
         <CardContent>
           <p className="text-sm text-[#111827]">{northStar}</p>
+          <div className="mt-2 p-2 border-t border-dashed border-gray-200">
+            <p className="text-xs text-gray-500">Debug info:</p>
+            <p className="text-xs text-gray-500">
+              northStar state: {JSON.stringify({value: northStar, length: northStar.length})}
+            </p>
+            <a href="/debug-user" target="_blank" className="text-xs text-blue-500 underline">
+              View Profile Data
+            </a>
+          </div>
         </CardContent>
       </Card>
 

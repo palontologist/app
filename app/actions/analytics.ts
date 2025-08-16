@@ -113,18 +113,21 @@ export async function getRealisticMetrics() {
       }
     })
 
-    return metrics
+    return { success: true, metrics }
   } catch (error) {
     console.error("Failed to get realistic metrics:", error)
     return {
-      founders_onboarded: {
-        current: 0,
-        target: 100,
-        unit: "founders",
-        description: "Add tasks and work sessions to see metrics",
-        calculation: "No data available yet",
-        category: "impact",
-        manual_entry: false,
+      success: false,
+      metrics: {
+        founders_onboarded: {
+          current: 0,
+          target: 100,
+          unit: "founders",
+          description: "Add tasks and work sessions to see metrics",
+          calculation: "No data available yet",
+          category: "impact",
+          manual_entry: false,
+        },
       },
     }
   }

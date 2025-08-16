@@ -53,9 +53,22 @@ export default function ImpactPage() {
         getWorkSessions(),
       ])
 
-      setMetrics(metricsResult)
-      if (foundersResult.success) setFounders(foundersResult.founders)
-      if (sessionsResult.success) setWorkSessions(sessionsResult.sessions)
+      // Defensive: ensure metricsResult has expected shape
+      if (!metricsResult || typeof metricsResult !== "object" || !("metrics" in metricsResult)) {
+        console.warn("getRealisticMetrics returned unexpected result:", metricsResult)
+        setMetrics({})
+      } else if (!metricsResult.success) {
+        // still set default metrics object to avoid UI crashes
+        setMetrics(metricsResult.metrics || {})
+      } else {
+        setMetrics(metricsResult.metrics || {})
+      }
+
+      if (foundersResult && foundersResult.success) setFounders(foundersResult.founders || [])
+      else if (foundersResult && !foundersResult.success) setFounders([])
+
+      if (sessionsResult && sessionsResult.success) setWorkSessions(sessionsResult.sessions || [])
+      else if (sessionsResult && !sessionsResult.success) setWorkSessions([])
     } catch (error) {
       console.error("Failed to load impact data:", error)
     } finally {
