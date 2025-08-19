@@ -1,6 +1,6 @@
 import { groq } from "@ai-sdk/groq"
 import { generateText } from "ai"
-import type { Task } from "./db"
+import type { Task } from "@/lib/types"
 
 export async function analyzeTaskAlignment(
   taskTitle: string,
@@ -87,7 +87,7 @@ export async function generatePersonalizedInsights(tasks: Task[], userMission: s
         .slice(0, 2)
         .map((t) => t.title),
       completion_rate: tasks.length > 0 ? Math.round((completedTasks.length / tasks.length) * 100) : 0,
-      specific_recommendations: [],
+      specific_recommendations: [] as string[],
       celebration: "",
       focus_area: "",
     }
@@ -194,6 +194,124 @@ Respond with this JSON structure:
       focus_area: "Begin by defining your daily tasks",
     }
   }
+}
+
+export async function generateDashboardAlignmentSummary(
+  tasks: Task[],
+  goals: any[],
+  userMission: string,
+  userFocusAreas: string | null,
+  userOnboarded: boolean
+) {
+  try {
+    if (tasks.length === 0 && goals.length === 0) {
+      return userOnboarded 
+        ? "You've onboarded but haven't added any tasks or goals yet. Your alignment score is 0% because there's nothing to measure."
+        : "Complete onboarding and add your first task to see AI alignment analysis."
+    }
+
+    const completedTasks = tasks.filter((t) => t.completed)
+    const highAlignmentTasks = tasks.filter((t) => (t.alignment_score || 0) >= 80)
+    const distractionTasks = tasks.filter((t) => t.alignment_category === "distraction")
+    const avgAlignment = tasks.length > 0 ? Math.round(tasks.reduce((sum, t) => sum + (t.alignment_score || 0), 0) / tasks.length) : 0
+    const completionRate = tasks.length > 0 ? Math.round((completedTasks.length / tasks.length) * 100) : 0
+    
+    const goalsOnTrack = goals.filter(g => (g.current_value || 0) >= (g.target_value || 1) * 0.5).length
+    const goalsStagnant = goals.filter(g => (g.current_value || 0) === 0).length
+
+    // Generate brutally honest AI summary
+    if (tasks.length > 1 || goals.length > 0) {
+      try {
+        const taskSummary = tasks.slice(0, 5).map((t) => 
+          `"${t.title}" (${t.alignment_score || 0}% aligned, ${t.completed ? "done" : "pending"})`
+        ).join(", ")
+        
+        const goalSummary = goals.slice(0, 3).map((g) => 
+          `"${g.title}" (${g.current_value || 0}/${g.target_value || 1} ${g.unit || "items"})`
+        ).join(", ")
+
+        const prompt = `
+You are a brutally honest AI coach analyzing a founder's task and goal alignment. Be direct, specific, and actionable.
+
+Context:
+- User mission: "${userMission}"
+- Focus areas: "${userFocusAreas || "Not specified"}"
+- Onboarded: ${userOnboarded ? "Yes" : "No"}
+- Tasks: ${taskSummary || "None"}
+- Goals: ${goalSummary || "None"}
+- Task completion rate: ${completionRate}%
+- Average alignment: ${avgAlignment}%
+- Goals on track: ${goalsOnTrack}/${goals.length}
+
+Write a 1-2 sentence brutally honest assessment that:
+1. States the current alignment score bluntly
+2. Identifies the biggest problem (low completion, poor alignment, or lack of goals)
+3. Gives one specific action to improve
+4. References their onboarding context if relevant
+
+Be direct but constructive. No sugar-coating, no vague statements. Focus on actionable reality.
+
+Example tone: "Your 45% alignment score reflects scattered priorities - only 2 of 8 tasks actually advance your mission. Complete the 3 high-impact pending tasks before adding more distractions."
+
+Respond with just the assessment text, no JSON or formatting.
+`
+
+        const { text } = await generateText({
+          model: groq("deepseek-r1-distill-llama-70b"),
+          prompt,
+          temperature: 0.1,
+        })
+
+        // Clean up the response more thoroughly
+        const cleanedText = text
+          .replace(/<Thinking>[\s\S]*?<\/Thinking>/gi, "") // Remove thinking tags
+          .replace(/<think>[\s\S]*?<\/think>/gi, "") // Remove lowercase thinking tags
+          .trim()
+          .replace(/^["']|["']$/g, "") // Remove quotes
+          .replace(/\n/g, " ") // Single line
+          .replace(/\s+/g, " ") // Normalize whitespace
+          .substring(0, 200) // Keep it concise
+
+        return cleanedText || getFallbackSummary(avgAlignment, completionRate, tasks.length, goals.length, distractionTasks.length)
+      } catch (aiError) {
+        console.error("AI summary failed:", aiError)
+        return getFallbackSummary(avgAlignment, completionRate, tasks.length, goals.length, distractionTasks.length)
+      }
+    }
+
+    return getFallbackSummary(avgAlignment, completionRate, tasks.length, goals.length, distractionTasks.length)
+  } catch (error) {
+    console.error("Dashboard alignment summary failed:", error)
+    return "Unable to analyze alignment - add tasks and goals to get AI insights."
+  }
+}
+
+function getFallbackSummary(avgAlignment: number, completionRate: number, taskCount: number, goalCount: number, distractionCount: number): string {
+  if (taskCount === 0) {
+    return "0% alignment score - you have no tasks to analyze. Add your first mission-aligned task to start tracking progress."
+  }
+  
+  if (avgAlignment < 50) {
+    return `${avgAlignment}% alignment score indicates most tasks don't advance your mission. Focus on fewer, higher-impact activities.`
+  }
+  
+  if (completionRate < 30) {
+    return `${avgAlignment}% alignment but only ${completionRate}% completion rate. You're choosing the right tasks but not finishing them.`
+  }
+  
+  if (distractionCount > taskCount / 2) {
+    return `${avgAlignment}% alignment score dragged down by ${distractionCount} distraction tasks. Eliminate or delegate the busywork.`
+  }
+  
+  if (goalCount === 0) {
+    return `${avgAlignment}% task alignment but no goals set. Your daily work needs bigger objectives to drive toward.`
+  }
+  
+  if (avgAlignment >= 80 && completionRate >= 70) {
+    return `Strong ${avgAlignment}% alignment with ${completionRate}% completion rate. Maintain this focus and consider scaling up your impact.`
+  }
+  
+  return `${avgAlignment}% alignment with ${completionRate}% completion. Balance task quality with consistent execution.`
 }
 
 export async function generateWeeklyInsights(tasks: Task[], userMission: string, worldVision: string) {

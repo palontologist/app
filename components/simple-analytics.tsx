@@ -18,6 +18,21 @@ import { generatePersonalizedInsights } from "@/lib/ai"
 import AIReasoningToggle from "@/components/ai-reasoning-toggle"
 import type { Task, User, Goal } from "@/lib/types"
 
+// New: type for snapshot prop (partial to allow narrow typing without exporting full server type)
+interface AnalyticsSnapshot {
+  success: boolean
+  error?: string
+  tasks?: any[]
+  goals?: any[]
+  events?: any[]
+  user?: any | null
+  insights?: any
+}
+
+interface SimpleAnalyticsProps {
+  initialData?: AnalyticsSnapshot
+}
+
 const motivationalQuotes = [
   "Every aligned action moves you closer to your vision.",
   "Focus is the bridge between dreams and reality.",
@@ -26,18 +41,23 @@ const motivationalQuotes = [
   "Alignment today creates impact tomorrow.",
 ]
 
-export default function SimpleAnalytics() {
-  const [tasks, setTasks] = React.useState<Task[]>([])
-  const [events, setEvents] = React.useState<any[]>([])
-  const [goals, setGoals] = React.useState<Goal[]>([])
-  const [user, setUser] = React.useState<User | null>(null)
-  const [insights, setInsights] = React.useState<any>(null)
-  const [loading, setLoading] = React.useState(true)
+export default function SimpleAnalytics({ initialData }: SimpleAnalyticsProps) {
+  const [tasks, setTasks] = React.useState<Task[]>(() => (initialData?.tasks as Task[]) || [])
+  const [events, setEvents] = React.useState<any[]>(() => initialData?.events || [])
+  const [goals, setGoals] = React.useState<Goal[]>(() => (initialData?.goals as Goal[]) || [])
+  const [user, setUser] = React.useState<User | null>(() => (initialData?.user as User) || null)
+  const [insights, setInsights] = React.useState<any>(() => initialData?.insights || null)
+  const [loading, setLoading] = React.useState(!initialData || !initialData.success)
   const [openEvent, setOpenEvent] = React.useState(false)
   const [quote] = React.useState(motivationalQuotes[Math.floor(Math.random() * motivationalQuotes.length)])
 
   React.useEffect(() => {
-    loadData()
+    if (!initialData) {
+      loadData()
+    } else {
+      setLoading(false)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const loadData = async () => {
@@ -56,7 +76,7 @@ export default function SimpleAnalytics() {
         if (userResult.success && userResult.user) {
           setUser(userResult.user)
 
-          // Generate simplified insights
+          // Generate simplified insights (only if not from initial snapshot)
           const personalizedInsights = await generatePersonalizedInsights(
             tasksResult.tasks,
             userResult.user.mission || "",
@@ -83,7 +103,16 @@ export default function SimpleAnalytics() {
     const result = await createEvent(formData)
     if (result.success) {
       setOpenEvent(false)
-      loadData() // Refresh events
+      if (initialData) {
+        // Add event locally instead of full reload
+        if (result.event) {
+          setEvents(prev => [result.event, ...prev])
+        } else {
+          loadData()
+        }
+      } else {
+        loadData()
+      }
     }
   }
 

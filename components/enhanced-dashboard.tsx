@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import Link from "next/link"
-import { Target, BarChart3, Plus, Lightbulb, Globe, Sparkles } from "lucide-react"
+import { Target, BarChart3, Plus, Lightbulb, Globe, Sparkles, User } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import CircularProgress from "@/components/circular-progress"
@@ -13,6 +13,7 @@ import TaskWithTimer from "@/components/task-with-timer"
 import { getTasks, toggleTaskCompletion, deleteTask } from "@/app/actions/tasks"
 import { getGoals } from "@/app/actions/goals"
 import { getUser } from "@/app/actions/user"
+import { generateDashboardSummary } from "@/app/actions/analytics"
 import type { Task as TaskType, Goal as GoalType, User as UserType } from "@/lib/types"
 
 interface ApiGoalType {
@@ -33,6 +34,7 @@ export default function EnhancedDashboard() {
   const [tasks, setTasks] = React.useState<TaskType[]>([])
   const [goals, setGoals] = React.useState<GoalType[]>([])
   const [user, setUser] = React.useState<UserType | null>(null)
+  const [alignmentSummary, setAlignmentSummary] = React.useState<string>("Loading alignment analysis...")
   const [openAdd, setOpenAdd] = React.useState(false)
   const [loading, setLoading] = React.useState(true)
   const [openGoals, setOpenGoals] = React.useState(false)
@@ -60,7 +62,7 @@ export default function EnhancedDashboard() {
         console.log("Dashboard - Mission title:", missionTitle);
         console.log("Dashboard - Mission title type:", typeof missionTitle);
         
-        const filtered = (goalsResult.goals || []).filter((g) => {
+        const filtered = (goalsResult.goals || []).filter((g: any) => {
           if (!g) return false
           // If the goal matches the user's mission text or is explicitly marked as North Star, exclude it
           if (missionTitle && g.title && g.title.toLowerCase().trim() === missionTitle.toLowerCase().trim()) return false
@@ -68,6 +70,26 @@ export default function EnhancedDashboard() {
           return true
         })
         setGoals(filtered)
+        
+        // Generate AI alignment summary after all data is loaded
+        const finalTasks = tasksResult.success ? tasksResult.tasks : []
+        const finalUser = userResult.success && userResult.user ? userResult.user : null
+        
+        if (finalUser) {
+          try {
+            const result = await generateDashboardSummary()
+            if (result.success) {
+              setAlignmentSummary(result.summary)
+            } else {
+              setAlignmentSummary(result.summary || "Add tasks and goals to get AI insights on your mission alignment!")
+            }
+          } catch (error) {
+            console.warn("Failed to generate AI summary:", error)
+            setAlignmentSummary("Add tasks and goals to get AI insights on your mission alignment!")
+          }
+        } else {
+          setAlignmentSummary("Complete onboarding to see AI analysis of your task alignment.")
+        }
       }
       
       if (userResult.success && userResult.user) {
@@ -99,6 +121,29 @@ export default function EnhancedDashboard() {
       console.error("Failed to load data:", error)
     } finally {
       setLoading(false)
+    }
+    
+    // Generate AI summary after loading is complete
+    generateAlignmentSummary()
+  }
+
+  const generateAlignmentSummary = async () => {
+    try {
+      if (user && (tasks.length > 0 || goals.length > 0)) {
+        const result = await generateDashboardSummary()
+        if (result.success) {
+          setAlignmentSummary(result.summary)
+        } else {
+          setAlignmentSummary(result.summary || "Add your first task or goal to see AI alignment analysis.")
+        }
+      } else if (user) {
+        setAlignmentSummary("Add your first task or goal to see AI alignment analysis.")
+      } else {
+        setAlignmentSummary("Complete onboarding to see AI analysis of your task alignment.")
+      }
+    } catch (error) {
+      console.error("Failed to generate alignment summary:", error)
+      setAlignmentSummary("Unable to analyze alignment - add tasks and goals to get AI insights.")
     }
   }
 
@@ -161,6 +206,13 @@ export default function EnhancedDashboard() {
         <div className="font-semibold tracking-tight text-xl">greta</div>
         <nav className="flex items-center gap-3">
           <Link
+            href="/profile"
+            className="inline-flex h-9 items-center justify-center rounded-md border bg-background px-3 text-sm hover:bg-accent hover:text-accent-foreground"
+            aria-label="View Profile"
+          >
+            <User className="h-4 w-4" />
+          </Link>
+          <Link
             href="/impact"
             className="inline-flex h-9 items-center justify-center rounded-md border bg-background px-3 text-sm hover:bg-accent hover:text-accent-foreground"
             aria-label="Open Impact"
@@ -205,11 +257,11 @@ export default function EnhancedDashboard() {
           <div>
             <div className="flex items-center gap-2 text-sm text-[#6B7280]">
               <Sparkles className="h-3 w-3" />
-              DeepSeek AI Alignment Score
+              Greta Alignment Score
             </div>
             <div className="mt-1 text-2xl font-semibold text-[#1A1A1A]">Today</div>
             <p className="mt-1 text-xs text-[#6B7280]">
-              Based on DeepSeek's analysis of task alignment with your mission
+              {alignmentSummary}
             </p>
           </div>
           <CircularProgress value={calculateAlignmentScore()} label="AI Analyzed" indicatorColor="#28A745" />

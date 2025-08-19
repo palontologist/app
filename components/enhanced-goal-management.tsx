@@ -11,15 +11,9 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Target, Plus, CheckCircle, Calendar, Trash2, StickyNote, Edit } from "lucide-react"
-import {
-  addGoalNote,
-  getGoalNotes,
-  getGoalContributingTasks,
-  addGoalActivity,
-  getGoalActivities,
-  completeGoalActivity,
-} from "@/app/actions/goals"
-import { deleteGoal } from "@/app/actions/goals"
+import { addGoalNote, getGoalNotes, getGoalContributingTasks, addGoalActivity, getGoalActivities, completeGoalActivity } from "@/app/actions/goals"
+import { deleteGoal, markGoalComplete } from "@/app/actions/goals"
+import { incrementGoalProgress } from "@/app/actions/analytics_snapshot"
 import type { Goal } from "@/lib/types"
 
 type EnhancedGoalManagementProps = {
@@ -45,7 +39,7 @@ export default function EnhancedGoalManagement({ goal, onGoalUpdated }: Enhanced
   const loadGoalData = async () => {
     const [activitiesResult, notesResult, tasksResult] = await Promise.all([
       getGoalActivities(goal.id),
-      getGoalNotes(goal.id),
+      getGoalNotes(),
       getGoalContributingTasks(goal.id),
     ])
 
@@ -73,7 +67,7 @@ export default function EnhancedGoalManagement({ goal, onGoalUpdated }: Enhanced
   const handleAddNote = async (formData: FormData) => {
     setIsLoading(true)
     try {
-      const result = await addGoalNote(goal.id, formData)
+      const result = await addGoalNote()
       if (result.success) {
         setOpenAddNote(false)
         loadGoalData()
@@ -94,15 +88,57 @@ export default function EnhancedGoalManagement({ goal, onGoalUpdated }: Enhanced
   }
 
   const handleDeleteGoal = async () => {
-    const result = await deleteGoal(goal.id)
-    if (result.success) {
-      setOpenDialog(false)
-      onGoalUpdated?.()
+    console.log("Deleting goal:", goal.id)
+    try {
+      const result = await deleteGoal(goal.id)
+      console.log("Delete goal result:", result)
+      if (result.success) {
+        setOpenDialog(false)
+        onGoalUpdated?.()
+      } else {
+        console.error("Failed to delete goal:", result.error)
+      }
+    } catch (error) {
+      console.error("Error deleting goal:", error)
     }
   }
 
-  const progress = goal.target_value ? (goal.current_value / goal.target_value) * 100 : 0
-  const isCompleted = goal.current_value >= (goal.target_value || 1)
+  const handleMarkComplete = async () => {
+    console.log("Marking goal complete:", goal.id)
+    try {
+      const result = await markGoalComplete(goal.id)
+      console.log("Mark complete result:", result)
+      if (result.success) {
+        onGoalUpdated?.()
+        // Refresh dialog content if dialog is open
+        if (openDialog) {
+          loadGoalData()
+        }
+      } else {
+        console.error("Failed to mark goal complete:", result.error)
+      }
+    } catch (error) {
+      console.error("Error marking goal complete:", error)
+    }
+  }
+
+  const handleIncrementProgress = async (delta: number) => {
+    const result = await incrementGoalProgress(goal.id, delta)
+    if (result.success) {
+      onGoalUpdated?.()
+      // Update local state optimistically for immediate UI feedback
+      if (openDialog) {
+        loadGoalData()
+      }
+    }
+  }
+
+  const currentVal = goal.current_value ?? 0
+  const targetVal = goal.target_value ?? 0
+  const progress = targetVal ? (currentVal / targetVal) * 100 : 0
+  // For goals without targets, consider complete if currentValue > 0
+  // For goals with targets, consider complete if currentValue >= targetValue
+  const isCompleted = targetVal ? currentVal >= targetVal : currentVal > 0
 
   return (
     <Card className={`border-l-4 ${isCompleted ? "border-l-green-600 bg-green-50" : "border-l-[#28A745]"}`}>
@@ -117,6 +153,27 @@ export default function EnhancedGoalManagement({ goal, onGoalUpdated }: Enhanced
             <p className="text-xs text-[#6B7280] mt-1">{goal.description}</p>
           </div>
           <div className="flex items-center gap-1">
+            {/* Quick action buttons */}
+            {!isCompleted && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={handleMarkComplete}
+                className="text-green-600 border-green-600 hover:bg-green-600 hover:text-white"
+                title="Mark Goal Complete"
+              >
+                <CheckCircle className="h-3 w-3" />
+              </Button>
+            )}
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={handleDeleteGoal}
+              className="text-red-600 border-red-600 hover:bg-red-600 hover:text-white"
+              title="Delete Goal"
+            >
+              <Trash2 className="h-3 w-3" />
+            </Button>
             <Dialog open={openDialog} onOpenChange={setOpenDialog}>
               <DialogTrigger asChild>
                 <Button size="sm" variant="outline" className="text-[#28A745] border-[#28A745] bg-transparent">
@@ -276,7 +333,7 @@ export default function EnhancedGoalManagement({ goal, onGoalUpdated }: Enhanced
                       ) : (
                         <div className="text-center text-sm text-[#6B7280] py-6">
                           No tasks have contributed to this goal yet. Complete tasks related to "
-                          {goal.title.toLowerCase()}" to see them here.
+                          {(goal.title || '').toLowerCase()}" to see them here.
                         </div>
                       )}
                     </div>
@@ -375,11 +432,11 @@ export default function EnhancedGoalManagement({ goal, onGoalUpdated }: Enhanced
                         <h4 className="font-medium text-sm mb-2">Progress Breakdown</h4>
                         <div className="text-xs text-[#6B7280] space-y-1">
                           <div>
-                            • Current: {goal.current_value} / {goal.target_value} {goal.unit}
+                            • Current: {currentVal} / {targetVal} {goal.unit || ''}
                           </div>
                           <div>• Progress: {progress.toFixed(1)}%</div>
                           <div>
-                            • Remaining: {(goal.target_value || 0) - goal.current_value} {goal.unit}
+                            • Remaining: {Math.max((targetVal || 0) - currentVal, 0)} {goal.unit || ''}
                           </div>
                           {goal.deadline && <div>• Deadline: {new Date(goal.deadline).toLocaleDateString()}</div>}
                         </div>
@@ -403,9 +460,16 @@ export default function EnhancedGoalManagement({ goal, onGoalUpdated }: Enhanced
                     <Trash2 className="mr-1 h-3 w-3" />
                     Delete Goal
                   </Button>
-                  <Button variant="outline" onClick={() => setOpenDialog(false)}>
-                    Close
-                  </Button>
+                  <div className="flex gap-2">
+                    {!isCompleted && goal.target_value != null && (
+                      <Button size="sm" className="bg-[#28A745] text-white hover:bg-[#23923d]" onClick={handleMarkComplete}>
+                        Mark Complete
+                      </Button>
+                    )}
+                    <Button variant="outline" onClick={() => setOpenDialog(false)}>
+                      Close
+                    </Button>
+                  </div>
                 </div>
               </DialogContent>
             </Dialog>
@@ -416,14 +480,51 @@ export default function EnhancedGoalManagement({ goal, onGoalUpdated }: Enhanced
         <div className="flex items-center justify-between">
           <div className="text-right">
             <div className="text-sm font-semibold">
-              {goal.current_value.toLocaleString()} / {goal.target_value?.toLocaleString()}
+              {goal.target_value != null ? (
+                `${currentVal.toLocaleString()} / ${goal.target_value.toLocaleString()}`
+              ) : (
+                isCompleted ? "✓ Complete" : "◯ Pending"
+              )}
             </div>
-            <div className="text-xs text-[#6B7280]">{goal.unit}</div>
+            <div className="text-xs text-[#6B7280]">{goal.unit || "goal"}</div>
           </div>
+          {/* Quick increment buttons - only show for numeric goals that aren't complete */}
+          {!isCompleted && goal.target_value != null && goal.target_value > 1 && (
+            <div className="flex items-center gap-1">
+              <Button
+                size="sm"
+                variant="outline" 
+                className="h-6 px-2 text-xs text-[#28A745] border-[#28A745] hover:bg-[#28A745] hover:text-white"
+                onClick={() => handleIncrementProgress(1)}
+              >
+                +1
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-6 px-2 text-xs text-[#28A745] border-[#28A745] hover:bg-[#28A745] hover:text-white"
+                onClick={() => handleIncrementProgress(5)}
+              >
+                +5
+              </Button>
+            </div>
+          )}
         </div>
-        <Progress value={Math.min(progress, 100)} className="h-2" />
+        {goal.target_value != null ? (
+          <Progress value={Math.min(progress, 100)} className="h-2" />
+        ) : (
+          <div className={`h-2 rounded-full ${isCompleted ? 'bg-green-200' : 'bg-gray-200'}`}>
+            <div className={`h-full rounded-full transition-all ${isCompleted ? 'w-full bg-green-600' : 'w-0'}`}></div>
+          </div>
+        )}
         <div className="flex justify-between text-xs text-[#6B7280]">
-          <span>{progress.toFixed(1)}% complete</span>
+          <span>
+            {goal.target_value != null ? (
+              `${progress.toFixed(1)}% complete`
+            ) : (
+              isCompleted ? "Complete" : "In Progress"
+            )}
+          </span>
           {goal.deadline && (
             <span className="flex items-center gap-1">
               <Calendar className="h-3 w-3" />
