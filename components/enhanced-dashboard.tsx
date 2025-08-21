@@ -44,10 +44,25 @@ export default function EnhancedDashboard() {
   const [openGoals, setOpenGoals] = React.useState(false)
   const [events, setEvents] = React.useState<any[]>([])
   const [openEvent, setOpenEvent] = React.useState(false)
+  const [fabOpen, setFabOpen] = React.useState(false)
+  const fabRef = React.useRef<HTMLDivElement | null>(null)
 
   React.useEffect(() => {
     loadData()
   }, [])
+
+  // Close FAB dropdown on outside click
+  React.useEffect(() => {
+    const onDocClick = (e: MouseEvent) => {
+      if (!fabOpen) return
+      const target = e.target as Node
+      if (fabRef.current && !fabRef.current.contains(target)) {
+        setFabOpen(false)
+      }
+    }
+    document.addEventListener("mousedown", onDocClick)
+    return () => document.removeEventListener("mousedown", onDocClick)
+  }, [fabOpen])
 
   const loadData = async () => {
     setLoading(true)
@@ -427,23 +442,45 @@ export default function EnhancedDashboard() {
         </CardContent>
       </Card>
 
-      {/* Smart FAB Dropdown */}
-      <div className="fixed bottom-24 right-6 z-20 sm:bottom-8">
-        <div className="relative group">
-          <Button aria-label="Add" className="h-14 w-14 rounded-full bg-[#28A745] p-0 text-white shadow-lg hover:bg-[#23923d]">
+      {/* Smart FAB Dropdown (click to open, stable on hover) */}
+      <div className="fixed bottom-24 right-6 z-20 sm:bottom-8" ref={fabRef}>
+        <div className="relative">
+          <Button
+            aria-label="Add"
+            aria-expanded={fabOpen}
+            onClick={() => setFabOpen((v) => !v)}
+            className="h-14 w-14 rounded-full bg-[#28A745] p-0 text-white shadow-lg hover:bg-[#23923d]"
+          >
             <Plus className="h-6 w-6" />
           </Button>
-          <div className="absolute bottom-16 right-0 hidden flex-col gap-2 group-hover:flex">
-            <Button size="sm" variant="outline" onClick={() => setOpenAdd(true)} className="flex items-center gap-2 bg-white">
-              <ListTodo className="h-3 w-3 text-[#28A745]" /> Add Task
-            </Button>
-            <Button size="sm" variant="outline" onClick={() => setOpenGoals(true)} className="flex items-center gap-2 bg-white">
-              <Activity className="h-3 w-3 text-[#28A745]" /> Add Activity
-            </Button>
-            <Button size="sm" variant="outline" onClick={() => setOpenEvent(true)} className="flex items-center gap-2 bg-white">
-              <CalendarPlus className="h-3 w-3 text-[#28A745]" /> Add Event
-            </Button>
-          </div>
+          {fabOpen && (
+            <div className="absolute bottom-16 right-0 flex flex-col gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => { setFabOpen(false); setOpenAdd(true) }}
+                className="flex items-center gap-2 bg-white"
+              >
+                <ListTodo className="h-3 w-3 text-[#28A745]" /> Add Task
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => { setFabOpen(false); setOpenGoals(true) }}
+                className="flex items-center gap-2 bg-white"
+              >
+                <Activity className="h-3 w-3 text-[#28A745]" /> Add Activity
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => { setFabOpen(false); setOpenEvent(true) }}
+                className="flex items-center gap-2 bg-white"
+              >
+                <CalendarPlus className="h-3 w-3 text-[#28A745]" /> Add Event
+              </Button>
+            </div>
+          )}
         </div>
       </div>
 
