@@ -11,6 +11,7 @@ import { generateWeeklyInsights } from "@/lib/ai"
 import { getGoals } from "@/app/actions/goals"
 import { getUser } from "@/app/actions/user"
 import { getAlignmentChartData } from "@/app/actions/analytics"
+import { generatePersonalizedInsights } from "@/lib/ai"
 import type { Task, Goal, User } from "@/lib/types"
 
 const chartConfig = {
@@ -23,6 +24,7 @@ export default function EnhancedAnalytics() {
   const [goals, setGoals] = React.useState<Goal[]>([])
   const [user, setUser] = React.useState<User | null>(null)
   const [insights, setInsights] = React.useState<any>(null)
+  const [personalized, setPersonalized] = React.useState<any>(null)
   const [chartData, setChartData] = React.useState<any[]>([])
   const [loading, setLoading] = React.useState(true)
 
@@ -56,9 +58,17 @@ export default function EnhancedAnalytics() {
                 userResult.user?.mission || "",
               )
               setInsights(aiInsights)
+
+              // Personalized, mission-tied "Your Focus Areas"
+              const p = await generatePersonalizedInsights(
+                tasksResult.tasks,
+                userResult.user?.mission || ""
+              )
+              setPersonalized(p)
             } catch (insightError) {
               console.error("Failed to generate insights:", insightError)
               setInsights(null)
+              setPersonalized(null)
             }
           }
         }
@@ -86,6 +96,47 @@ export default function EnhancedAnalytics() {
 
   return (
     <div className="mx-auto max-w-2xl px-4 pb-16 pt-6">
+      {/* Your Focus Areas - personalized and mission-tied */}
+      {personalized && (
+        <Card className="mb-6">
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Target className="h-4 w-4 text-[#28A745]" />
+              Your Focus Areas
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {personalized.focus_area && (
+              <div className="rounded-lg bg-blue-50 p-3 border border-blue-200">
+                <h3 className="text-sm font-medium text-blue-700 mb-1">This Week's Focus</h3>
+                <p className="text-sm text-[#374151]">{personalized.focus_area}</p>
+              </div>
+            )}
+
+            {(personalized.focus_by_horizon?.short_term?.length || personalized.focus_by_horizon?.long_term?.length) && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="rounded-lg bg-[#28A745]/5 p-3 border border-[#28A745]/20">
+                  <h3 className="text-sm font-medium text-[#28A745] mb-1">Short-term (48h)</h3>
+                  <ul className="list-disc pl-4 text-sm text-[#374151] space-y-1">
+                    {personalized.focus_by_horizon.short_term?.slice(0,4).map((item: string, i: number) => (
+                      <li key={i}>{item}</li>
+                    ))}
+                  </ul>
+                </div>
+                <div className="rounded-lg bg-blue-50 p-3 border border-blue-200">
+                  <h3 className="text-sm font-medium text-blue-700 mb-1">Long-term (1–4 weeks)</h3>
+                  <ul className="list-disc pl-4 text-sm text-[#374151] space-y-1">
+                    {personalized.focus_by_horizon.long_term?.slice(0,4).map((item: string, i: number) => (
+                      <li key={i}>{item}</li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
       <header className="mb-4 flex items-center gap-3">
         <Link
           href="/dashboard"
