@@ -185,26 +185,32 @@ export async function getTaskNotes() {
 // Timer functionality using in-memory fallback. For persistence you'd add a timer table.
 let activeTimer: { userId: string; taskId: number; startTime: number } | null = null
 
-export async function getActiveTimer(_userId: number) {
+// Updated timer APIs to match client usage and return consistent payloads
+export async function getActiveTimer(_taskId?: number) {
   const { userId } = await auth()
-  if (!userId) return null
+  if (!userId) return { success: false }
   if (activeTimer && activeTimer.userId === userId) {
-    return { ...activeTimer }
+    return { success: true, timer: { ...activeTimer } }
   }
-  return null
+  return { success: true, timer: null }
 }
 
-export async function startTaskTimer(_userId: number, taskId: number) {
+export async function startTaskTimer(taskId: number) {
   const { userId } = await auth()
-  if (!userId) return null
+  if (!userId) return { success: false, error: "Unauthenticated" }
   activeTimer = { userId, taskId, startTime: Date.now() }
-  return activeTimer
+  return { success: true, timer: { ...activeTimer } }
 }
 
-export async function stopTaskTimer(_userId: number, taskId: number) {
+export async function stopTaskTimer(taskId: number, minutesOverride?: number, _complete?: boolean) {
   const { userId } = await auth()
-  if (!userId || !activeTimer || activeTimer.userId !== userId || activeTimer.taskId !== taskId) return null
-  const duration = Math.round((Date.now() - activeTimer.startTime) / 60000)
+  if (!userId) return { success: false, error: "Unauthenticated" }
+  if (!activeTimer || activeTimer.userId !== userId || activeTimer.taskId !== taskId) {
+    return { success: false, error: "No active timer" }
+  }
+  const duration = typeof minutesOverride === "number" && minutesOverride >= 0
+    ? Math.round(minutesOverride)
+    : Math.round((Date.now() - activeTimer.startTime) / 60000)
   if (duration > 0) {
     await db.insert(workSessions).values({
       userId,
@@ -214,8 +220,8 @@ export async function stopTaskTimer(_userId: number, taskId: number) {
       startedAt: new Date(activeTimer.startTime),
     })
   }
-  const stopped = activeTimer
+  const stopped = { ...activeTimer }
   activeTimer = null
   revalidatePath("/dashboard")
-  return stopped
+  return { success: true, timer: stopped, durationMinutes: duration }
 }

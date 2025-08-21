@@ -2,9 +2,12 @@
 
 import * as React from "react"
 import Link from "next/link"
-import { Target, BarChart3, Plus, Lightbulb, Globe, Sparkles, User } from "lucide-react"
+import { Target, BarChart3, Plus, Lightbulb, Globe, Sparkles, User, Calendar, ListTodo, Activity, CalendarPlus } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import CircularProgress from "@/components/circular-progress"
 import SmartTaskDialog from "@/components/smart-task-dialog"
 import GoalsDialog from "@/components/goals-dialog"
@@ -15,6 +18,7 @@ import { getGoals } from "@/app/actions/goals"
 import { getUser } from "@/app/actions/user"
 import { generateDashboardSummary } from "@/app/actions/analytics"
 import type { Task as TaskType, Goal as GoalType, User as UserType } from "@/lib/types"
+import { createEvent, getEvents } from "@/app/actions/events"
 
 interface ApiGoalType {
   id: number
@@ -38,6 +42,8 @@ export default function EnhancedDashboard() {
   const [openAdd, setOpenAdd] = React.useState(false)
   const [loading, setLoading] = React.useState(true)
   const [openGoals, setOpenGoals] = React.useState(false)
+  const [events, setEvents] = React.useState<any[]>([])
+  const [openEvent, setOpenEvent] = React.useState(false)
 
   React.useEffect(() => {
     loadData()
@@ -46,7 +52,7 @@ export default function EnhancedDashboard() {
   const loadData = async () => {
     setLoading(true)
     try {
-      const [tasksResult, goalsResult, userResult] = await Promise.all([getTasks(), getGoals(), getUser()])
+      const [tasksResult, goalsResult, userResult, eventsResult] = await Promise.all([getTasks(), getGoals(), getUser(), getEvents()])
 
       if (tasksResult.success) {
         console.log("Tasks loaded:", tasksResult.tasks)
@@ -117,6 +123,10 @@ export default function EnhancedDashboard() {
         
         setUser(mappedUser as UserType)
       }
+
+      if (eventsResult && eventsResult.success) {
+        setEvents(eventsResult.events)
+      }
     } catch (error) {
       console.error("Failed to load data:", error)
     } finally {
@@ -185,6 +195,23 @@ export default function EnhancedDashboard() {
         return "#DC3545"
       default:
         return "#6C757D"
+    }
+  }
+
+  const getUpcomingEvents = () => {
+    const today = new Date().toISOString().split("T")[0]
+    return events.filter((event) => event.event_date >= today).slice(0, 3)
+  }
+
+  const handleCreateEvent = async (formData: FormData) => {
+    const result = await createEvent(formData)
+    if (result && result.success) {
+      setOpenEvent(false)
+      if (result.event) {
+        setEvents((prev) => [result.event, ...prev])
+      } else {
+        loadData()
+      }
     }
   }
 
@@ -336,16 +363,119 @@ export default function EnhancedDashboard() {
         )}
       </section>
 
-      {/* Smart FAB */}
-      <Button
-        onClick={() => setOpenAdd(true)}
-        aria-label="Add Smart Task"
-        className="fixed bottom-24 right-6 z-20 h-14 w-14 rounded-full bg-[#28A745] p-0 text-white shadow-lg hover:bg-[#23923d] sm:bottom-8"
-      >
-        <Plus className="h-6 w-6" />
-      </Button>
+      {/* Upcoming Events on Dashboard */}
+      <Card className="mt-6">
+        <CardHeader className="pb-2">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Calendar className="h-4 w-4 text-[#28A745]" />
+            Upcoming Events
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {getUpcomingEvents().length > 0 ? (
+            <div className="space-y-3">
+              {getUpcomingEvents().map((event) => (
+                <div key={event.id} className="flex items-center justify-between p-3 rounded-lg border">
+                  <div>
+                    <h3 className="font-medium text-sm">{event.title}</h3>
+                    {event.description && <p className="text-xs text-[#6B7280] mt-1">{event.description}</p>}
+                  </div>
+                  <div className="text-right">
+                    <div className="text-xs text-[#6B7280]">{new Date(event.event_date).toLocaleDateString()}</div>
+                    {event.event_time && <div className="text-xs text-[#6B7280]">{event.event_time}</div>}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-6">
+              <p className="text-sm text-[#6B7280]">No upcoming events</p>
+              <Dialog open={openEvent} onOpenChange={setOpenEvent}>
+                <DialogTrigger asChild>
+                  <Button size="sm" className="mt-3 text-white bg-[#28A745] hover:bg-[#23923d]">
+                    <Plus className="mr-2 h-4 w-4" />
+                    Add Event
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-md">
+                  <DialogHeader>
+                    <DialogTitle>Add Calendar Event</DialogTitle>
+                  </DialogHeader>
+                  <form onSubmit={async (e) => { e.preventDefault(); const fd = new FormData(e.currentTarget); await handleCreateEvent(fd) }} className="grid gap-4">
+                    <div className="grid gap-2">
+                      <Label htmlFor="event-title">Event Title</Label>
+                      <Input id="event-title" name="title" placeholder="Team meeting" required />
+                    </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor="event-date">Date</Label>
+                      <Input id="event-date" name="eventDate" type="date" required />
+                    </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor="event-time">Time</Label>
+                      <Input id="event-time" name="eventTime" type="time" defaultValue="09:00" />
+                    </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor="event-description">Description (Optional)</Label>
+                      <Input id="event-description" name="description" placeholder="Meeting details..." />
+                    </div>
+                    <Button type="submit" className="w-full text-white bg-[#28A745] hover:bg-[#23923d]">Add Event</Button>
+                  </form>
+                </DialogContent>
+              </Dialog>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Smart FAB Dropdown */}
+      <div className="fixed bottom-24 right-6 z-20 sm:bottom-8">
+        <div className="relative group">
+          <Button aria-label="Add" className="h-14 w-14 rounded-full bg-[#28A745] p-0 text-white shadow-lg hover:bg-[#23923d]">
+            <Plus className="h-6 w-6" />
+          </Button>
+          <div className="absolute bottom-16 right-0 hidden flex-col gap-2 group-hover:flex">
+            <Button size="sm" variant="outline" onClick={() => setOpenAdd(true)} className="flex items-center gap-2 bg-white">
+              <ListTodo className="h-3 w-3 text-[#28A745]" /> Add Task
+            </Button>
+            <Button size="sm" variant="outline" onClick={() => setOpenGoals(true)} className="flex items-center gap-2 bg-white">
+              <Activity className="h-3 w-3 text-[#28A745]" /> Add Activity
+            </Button>
+            <Button size="sm" variant="outline" onClick={() => setOpenEvent(true)} className="flex items-center gap-2 bg-white">
+              <CalendarPlus className="h-3 w-3 text-[#28A745]" /> Add Event
+            </Button>
+          </div>
+        </div>
+      </div>
 
       <SmartTaskDialog open={openAdd} onOpenChange={setOpenAdd} />
+
+      {/* Hidden Add Event dialog also accessible from events card when none */}
+      <Dialog open={openEvent} onOpenChange={setOpenEvent}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Add Calendar Event</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={async (e) => { e.preventDefault(); const fd = new FormData(e.currentTarget); await handleCreateEvent(fd) }} className="grid gap-4">
+            <div className="grid gap-2">
+              <Label htmlFor="event-title-2">Event Title</Label>
+              <Input id="event-title-2" name="title" placeholder="Team meeting" required />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="event-date-2">Date</Label>
+              <Input id="event-date-2" name="eventDate" type="date" required />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="event-time-2">Time</Label>
+              <Input id="event-time-2" name="eventTime" type="time" defaultValue="09:00" />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="event-description-2">Description (Optional)</Label>
+              <Input id="event-description-2" name="description" placeholder="Meeting details..." />
+            </div>
+            <Button type="submit" className="w-full text-white bg-[#28A745] hover:bg-[#23923d]">Add Event</Button>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

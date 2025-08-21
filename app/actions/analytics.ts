@@ -66,6 +66,62 @@ export async function getAnalyticsSnapshot() {
   }
 }
 
+// Provide 7-day alignment chart data similar to mock shown in the design
+export async function getAlignmentChartData() {
+  try {
+    const { userId } = await auth()
+    if (!userId) return []
+
+    // Load last 14 days to be safe and then slice to 7
+    const since = new Date()
+    since.setDate(since.getDate() - 14)
+
+    const taskRows = await db.select().from(tasks).where(eq(tasks.userId, userId)).orderBy(desc(tasks.createdAt))
+
+    // Bucket by day label
+    const dayLabels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+    const today = new Date()
+    const days: { label: string; dateKey: string }[] = []
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(today)
+      d.setDate(today.getDate() - i)
+      const label = dayLabels[d.getDay() === 0 ? 6 : d.getDay() - 1]
+      const dateKey = d.toISOString().slice(0, 10)
+      days.push({ label, dateKey })
+    }
+
+    const byDate: Record<string, { aligned: number; distraction: number; total: number }> = {}
+    for (const d of days) byDate[d.dateKey] = { aligned: 0, distraction: 0, total: 0 }
+
+    for (const r of taskRows) {
+      const doneAt = r.completed ? r.completedAt ?? r.updatedAt ?? r.createdAt : null
+      if (!doneAt) continue
+      const dateKey = new Date(doneAt).toISOString().slice(0, 10)
+      if (!(dateKey in byDate)) continue
+      const cat = (r.alignmentCategory || '').toLowerCase()
+      if (cat === 'distraction') byDate[dateKey].distraction += 1
+      else if (cat === 'high' || cat === 'medium' || cat === 'low') byDate[dateKey].aligned += 1
+      else byDate[dateKey].aligned += 0 // ignore unrated
+      byDate[dateKey].total += 1
+    }
+
+    const data = days.map(({ label, dateKey }) => {
+      const stats = byDate[dateKey]
+      const hasData = stats.total > 0
+      const alignedPct = hasData ? Math.round((stats.aligned / stats.total) * 100) : 0
+      const distractionPct = hasData ? Math.max(0, 100 - alignedPct) : 0
+      return { day: label, aligned: alignedPct, distraction: distractionPct, hasData }
+    })
+
+    return data
+  } catch (error) {
+    console.error('Failed to compute alignment chart data:', error)
+    // Fallback to empty dataset with hasData=false
+    const dayLabels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+    return dayLabels.map((label) => ({ day: label, aligned: 0, distraction: 0, hasData: false }))
+  }
+}
+
 export async function incrementGoalProgress(goalId: number, delta: number) {
   try {
     const { userId } = await auth()
