@@ -146,41 +146,11 @@ export default function EnhancedAnalytics() {
           <ArrowLeft className="h-4 w-4" />
         </Link>
         <div>
-          <h1 className="text-lg font-semibold flex items-center gap-2">
-            <Brain className="h-5 w-5 text-[#28A745]" />
-            Groq-Powered Analytics
-          </h1>
-          <p className="text-sm text-[#6B7280]">Advanced AI insights on your focus and alignment</p>
+          <h1 className="text-lg font-semibold">Your Focus Report</h1>
         </div>
       </header>
 
-      {/* AI Insights Summary */}
-      {insights && (
-        <Card className="mb-6 border-l-4 border-l-[#28A745]">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base">
-              <Sparkles className="h-4 w-4 text-[#28A745]" />
-              Weekly Groq Insights
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-[#6B7280]">Overall Alignment Score</span>
-              <span className="text-2xl font-bold text-[#28A745]">{insights.overall_alignment_score}%</span>
-            </div>
-
-            <div className="rounded-lg bg-[#28A745]/5 p-3">
-              <h3 className="text-sm font-medium text-[#28A745] mb-2">🎉 Celebration</h3>
-              <p className="text-sm text-[#374151]">{insights.celebration}</p>
-            </div>
-
-            <div className="rounded-lg bg-blue-50 p-3">
-              <h3 className="text-sm font-medium text-blue-700 mb-2">🎯 Focus Area</h3>
-              <p className="text-sm text-[#374151]">{insights.focus_area}</p>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+      {/* Remove headline card; content kept simpler per request */}
 
       {/* Alignment Chart - Only show days with data */}
       <Card className="mb-6">

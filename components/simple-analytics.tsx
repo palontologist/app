@@ -10,11 +10,14 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Progress } from "@/components/ui/progress"
+import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart"
+import { Bar, BarChart, CartesianGrid, XAxis, YAxis, ResponsiveContainer } from "recharts"
 import { getTasks } from "@/app/actions/tasks"
 import { getUser } from "@/app/actions/user"
 import { getGoals } from "@/app/actions/goals"
+import { getAlignmentChartData } from "@/app/actions/analytics"
 import { createEvent, getEvents } from "@/app/actions/events"
-import { generatePersonalizedInsights } from "@/lib/ai"
+import { generatePersonalizedInsights, generateWeeklyInsights } from "@/lib/ai"
 import AIReasoningToggle from "@/components/ai-reasoning-toggle"
 import type { Task, User, Goal } from "@/lib/types"
 
@@ -50,6 +53,7 @@ export default function SimpleAnalytics({ initialData }: SimpleAnalyticsProps) {
   const [loading, setLoading] = React.useState(!initialData || !initialData.success)
   const [openEvent, setOpenEvent] = React.useState(false)
   const [quote] = React.useState(motivationalQuotes[Math.floor(Math.random() * motivationalQuotes.length)])
+  const [chartData, setChartData] = React.useState<any[]>([])
 
   React.useEffect(() => {
     if (!initialData) {
@@ -63,11 +67,12 @@ export default function SimpleAnalytics({ initialData }: SimpleAnalyticsProps) {
   const loadData = async () => {
     setLoading(true)
     try {
-      const [tasksResult, userResult, eventsResult, goalsResult] = await Promise.all([
+      const [tasksResult, userResult, eventsResult, goalsResult, chartResult] = await Promise.all([
         getTasks(),
         getUser(),
         getEvents(),
         getGoals(),
+        getAlignmentChartData(),
       ])
 
       if (tasksResult.success) {
@@ -81,7 +86,22 @@ export default function SimpleAnalytics({ initialData }: SimpleAnalyticsProps) {
             tasksResult.tasks,
             userResult.user.mission || "",
           )
-          setInsights(personalizedInsights)
+          // Weekly Groq insights (fallback-safe)
+          const weekly = await generateWeeklyInsights(
+            tasksResult.tasks,
+            userResult.user.mission || "",
+            userResult.user.worldVision || ""
+          )
+          const merged = {
+            ...personalizedInsights,
+            focus_recommendation: weekly?.next_week_focus || personalizedInsights.focus_area,
+            key_insights: [
+              ...(weekly?.key_wins || []),
+              ...(weekly?.areas_for_improvement || []),
+              ...(personalizedInsights?.key_insights || []),
+            ],
+          }
+          setInsights(merged)
         }
       }
 
@@ -91,6 +111,10 @@ export default function SimpleAnalytics({ initialData }: SimpleAnalyticsProps) {
 
       if (goalsResult.success) {
         setGoals(goalsResult.goals)
+      }
+
+      if (Array.isArray(chartResult)) {
+        setChartData(chartResult)
       }
     } catch (error) {
       console.error("Failed to load analytics data:", error)
@@ -215,12 +239,12 @@ export default function SimpleAnalytics({ initialData }: SimpleAnalyticsProps) {
         </Dialog>
       </header>
 
-      {/* Mission Progress Overview */}
+      {/* Mission Progress Overview (Core Mission) */}
       <Card className="mb-4 border-l-4 border-l-[#28A745] sm:mb-6">
         <CardHeader className="pb-2 sm:pb-3">
           <CardTitle className="flex items-center gap-2 text-sm sm:text-base">
             <Compass className="h-4 w-4 text-[#28A745] sm:h-5 sm:w-5" />
-            Mission Progress
+            Core Mission Progress
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3 sm:space-y-4">
@@ -283,6 +307,37 @@ export default function SimpleAnalytics({ initialData }: SimpleAnalyticsProps) {
         </Card>
       </div>
 
+      {/* Weekly Alignment Chart (simple, shadcn style) */}
+      <Card className="mb-4 sm:mb-6">
+        <CardHeader className="pb-2 sm:pb-3">
+          <CardTitle className="text-sm sm:text-base">Alignment Over the Last 7 Days</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {chartData.some((d) => d.hasData) ? (
+            <ChartContainer
+              className="h-56 w-full"
+              config={{ aligned: { label: "Aligned", color: "hsl(var(--chart-1))" }, distraction: { label: "Distraction", color: "hsl(var(--chart-2))" } }}
+              style={{ ["--chart-1"]: "134 61% 41%", ["--chart-2"]: "220 9% 85%" } as React.CSSProperties}
+            >
+              <ResponsiveContainer>
+                <BarChart data={chartData.filter((d) => d.hasData)}>
+                  <CartesianGrid vertical={false} stroke="#E5E7EB" />
+                  <XAxis dataKey="day" tickLine={false} axisLine={false} />
+                  <YAxis tickLine={false} axisLine={false} tickFormatter={(v) => `${v}%`} />
+                  <ChartTooltip>
+                    <ChartTooltipContent />
+                  </ChartTooltip>
+                  <Bar dataKey="aligned" stackId="a" fill="hsl(var(--chart-1))" radius={[4,4,0,0]} />
+                  <Bar dataKey="distraction" stackId="a" fill="hsl(var(--chart-2))" />
+                </BarChart>
+              </ResponsiveContainer>
+            </ChartContainer>
+          ) : (
+            <div className="text-center text-sm text-[#6B7280] py-8">Add tasks to see your weekly alignment.</div>
+          )}
+        </CardContent>
+      </Card>
+
       {/* Active Goals Progress */}
       {goals.length > 0 && (
         <Card className="mb-4 sm:mb-6">
@@ -325,7 +380,7 @@ export default function SimpleAnalytics({ initialData }: SimpleAnalyticsProps) {
         </Card>
       )}
 
-      {/* Personalized Recommendations */}
+      {/* Your Focus Areas (includes Weekly Groq Insights merged) */}
       {insights && (
         <Card className="mb-4 sm:mb-6">
           <CardHeader className="pb-2 sm:pb-3">
