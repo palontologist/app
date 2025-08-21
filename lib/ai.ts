@@ -90,6 +90,11 @@ export async function generatePersonalizedInsights(tasks: Task[], userMission: s
       specific_recommendations: [] as string[],
       celebration: "",
       focus_area: "",
+      // New: structured focus areas split by horizon
+      focus_by_horizon: {
+        short_term: [] as string[],
+        long_term: [] as string[],
+      },
     }
 
     // Generate specific recommendations based on patterns
@@ -108,6 +113,15 @@ export async function generatePersonalizedInsights(tasks: Task[], userMission: s
       specificInsights.celebration = "Ready to start your mission-aligned journey!"
     }
 
+    // Heuristic horizon split: short-term = tasks that contain verbs like "email, call, draft, fix"; long-term = tasks with nouns like "strategy, roadmap, hiring"
+    const shortTermKeywords = ["email", "call", "draft", "write", "fix", "ship", "deploy", "reach", "follow up", "demo", "update"]
+    const longTermKeywords = ["strategy", "roadmap", "hiring", "branding", "fundraising", "research", "architecture", "planning"]
+    for (const t of pendingTasks.slice(0, 10)) {
+      const title = (t.title || '').toLowerCase()
+      if (shortTermKeywords.some(k => title.includes(k))) specificInsights.focus_by_horizon.short_term.push(t.title)
+      else if (longTermKeywords.some(k => title.includes(k))) specificInsights.focus_by_horizon.long_term.push(t.title)
+    }
+
     // Try AI enhancement if we have enough data
     if (tasks.length > 2) {
       try {
@@ -116,18 +130,25 @@ export async function generatePersonalizedInsights(tasks: Task[], userMission: s
           .join(", ")
 
         const prompt = `
-Analyze this founder's specific tasks and provide personalized insights. Respond with valid JSON only.
+Analyze this founder's tasks and mission and provide highly personalized insights. Respond with valid JSON only.
 
 Mission: "${userMission}"
 Tasks: ${taskList}
 High-impact completed: ${highAlignmentTasks.map((t) => t.title).join(", ")}
 Distractions: ${distractionTasks.map((t) => t.title).join(", ")}
 
+The insights must:
+- Directly reference the mission and the user's actual tasks
+- Include one short-term focus and one long-term focus tied to the mission
+- Provide 2-3 concrete next actions (verbs + objects)
+
 Respond with this JSON structure:
 {
-  "key_insights": ["specific insight about their actual tasks", "pattern observation"],
-  "recommendations": ["specific actionable advice", "concrete next step"],
-  "focus_area": "specific area based on their task patterns"
+  "key_insights": ["specific insight about their mission & tasks"],
+  "recommendations": ["do X by Y because Z", "delegate A to free time for B"],
+  "focus_area": "single theme (e.g., customer acquisition)",
+  "short_term": ["next 48h actions"],
+  "long_term": ["1-4 week initiatives"]
 }
 `
 
@@ -157,6 +178,10 @@ Respond with this JSON structure:
           ],
           recommendations: aiInsights.recommendations || specificInsights.specific_recommendations,
           focus_area: aiInsights.focus_area || "Complete your highest-alignment pending tasks",
+          focus_by_horizon: {
+            short_term: aiInsights.short_term || specificInsights.focus_by_horizon.short_term,
+            long_term: aiInsights.long_term || specificInsights.focus_by_horizon.long_term,
+          },
           ai_reasoning: reasoning,
         }
       } catch (aiError) {

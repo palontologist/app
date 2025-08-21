@@ -371,6 +371,27 @@ export default function SimpleAnalytics({ initialData }: SimpleAnalyticsProps) {
               <p className="text-sm text-[#374151]">{insights.focus_recommendation || insights.focus_area}</p>
             </div>
 
+            {(insights.focus_by_horizon?.short_term?.length || insights.focus_by_horizon?.long_term?.length) && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="rounded-lg bg-[#28A745]/5 p-3 border border-[#28A745]/20">
+                  <h3 className="text-sm font-medium text-[#28A745] mb-1">Short-term (48h)</h3>
+                  <ul className="list-disc pl-4 text-sm text-[#374151] space-y-1">
+                    {insights.focus_by_horizon.short_term?.slice(0,4).map((item: string, i: number) => (
+                      <li key={i}>{item}</li>
+                    ))}
+                  </ul>
+                </div>
+                <div className="rounded-lg bg-blue-50 p-3 border border-blue-200">
+                  <h3 className="text-sm font-medium text-blue-700 mb-1">Long-term (1–4 weeks)</h3>
+                  <ul className="list-disc pl-4 text-sm text-[#374151] space-y-1">
+                    {insights.focus_by_horizon.long_term?.slice(0,4).map((item: string, i: number) => (
+                      <li key={i}>{item}</li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            )}
+
             {/* AI Insights with Reasoning */}
             {insights.key_insights && (
               <div>
@@ -378,7 +399,7 @@ export default function SimpleAnalytics({ initialData }: SimpleAnalyticsProps) {
                 <div className="space-y-2">
                   {insights.key_insights.map((insight: string, index: number) => (
                     <div key={index} className="p-2 rounded bg-gray-50 border-l-2 border-[#28A745]/30">
-                      <p className="text-sm text-[#374151]">{insight}</p>
+                      <p className="text-sm text-[#374151]">{insights.focus_area ? `[${insights.focus_area}] ` : ""}{insight}</p>
                     </div>
                   ))}
                 </div>
@@ -473,3 +494,4 @@ export default function SimpleAnalytics({ initialData }: SimpleAnalyticsProps) {
     </div>
   )
 }
+
