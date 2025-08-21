@@ -32,7 +32,18 @@ export async function getAnalyticsSnapshot() {
       created_at: new Date(r.createdAt),
       updated_at: new Date(r.updatedAt),
     }))
-  const goalsMapped = goalRows.map((r: typeof goals.$inferSelect) => ({
+  // Filter out North Star goal from analytics set
+  const missionTitle = (userResult.success && userResult.user?.mission) ? String(userResult.user.mission) : null
+  const filteredGoalRows = goalRows.filter((r: typeof goals.$inferSelect) => {
+    if (!missionTitle) return true
+    const title = (r.title || '').toLowerCase().trim()
+    const mission = missionTitle.toLowerCase().trim()
+    const desc = (r.description || '').toLowerCase()
+    if (title === mission) return false
+    if (desc.includes('north star')) return false
+    return true
+  })
+  const goalsMapped = filteredGoalRows.map((r: typeof goals.$inferSelect) => ({
       id: r.id,
       user_id: r.userId,
       title: r.title,
