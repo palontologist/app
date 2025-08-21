@@ -231,7 +231,7 @@ export default function EnhancedAnalytics() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
             <TrendingUp className="h-4 w-4 text-[#28A745]" />
-            Task Performance
+            Recommendations
           </CardTitle>
         </CardHeader>
         <CardContent>
