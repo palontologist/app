@@ -19,6 +19,7 @@ import { getUser } from "@/app/actions/user"
 import { generateDashboardSummary } from "@/app/actions/analytics"
 import type { Task as TaskType, Goal as GoalType, User as UserType } from "@/lib/types"
 import { createEvent, getEvents } from "@/app/actions/events"
+import { getScheduleSuggestions } from "@/app/actions/scheduler"
 
 interface ApiGoalType {
   id: number
@@ -46,6 +47,7 @@ export default function EnhancedDashboard() {
   const [openEvent, setOpenEvent] = React.useState(false)
   const [fabOpen, setFabOpen] = React.useState(false)
   const fabRef = React.useRef<HTMLDivElement | null>(null)
+  const [schedule, setSchedule] = React.useState<Array<{ taskId: number; title: string; score: number; tags: string[]; reason: string }>>([])
 
   React.useEffect(() => {
     loadData()
@@ -67,7 +69,7 @@ export default function EnhancedDashboard() {
   const loadData = async () => {
     setLoading(true)
     try {
-      const [tasksResult, goalsResult, userResult, eventsResult] = await Promise.all([getTasks(), getGoals(), getUser(), getEvents()])
+      const [tasksResult, goalsResult, userResult, eventsResult, schedResult] = await Promise.all([getTasks(), getGoals(), getUser(), getEvents(), getScheduleSuggestions()])
 
       if (tasksResult.success) {
         console.log("Tasks loaded:", tasksResult.tasks)
@@ -141,6 +143,10 @@ export default function EnhancedDashboard() {
 
       if (eventsResult && eventsResult.success) {
         setEvents(eventsResult.events)
+      }
+
+      if (schedResult && schedResult.success) {
+        setSchedule(schedResult.suggestions.slice(0, 5))
       }
     } catch (error) {
       console.error("Failed to load data:", error)
@@ -307,6 +313,37 @@ export default function EnhancedDashboard() {
             </p>
           </div>
           <CircularProgress value={calculateAlignmentScore()} label="AI Analyzed" indicatorColor="#28A745" />
+        </CardContent>
+      </Card>
+
+      {/* Metta Planner */}
+      <Card className="mb-6">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base font-medium flex items-center gap-2">
+            <Sparkles className="h-4 w-4 text-[#28A745]" /> Metta Planner
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {schedule.length === 0 ? (
+            <div className="text-sm text-[#6B7280]">No personalized suggestions yet. Add tasks to see rule-based recommendations.</div>
+          ) : (
+            <div className="space-y-2">
+              {schedule.map((s) => (
+                <div key={s.taskId} className="flex items-center justify-between rounded-lg border p-3">
+                  <div className="min-w-0">
+                    <div className="text-sm font-medium truncate max-w-[14rem]">{s.title}</div>
+                    <div className="text-xs text-[#6B7280] truncate max-w-[16rem]">{s.reason}</div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs px-2 py-1 rounded bg-[#28A745]/10 text-[#28A745]">{s.score}</span>
+                    {s.tags.slice(0,2).map((tag) => (
+                      <span key={tag} className="text-[10px] px-2 py-0.5 rounded border text-[#6B7280]">{tag}</span>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </CardContent>
       </Card>
 
