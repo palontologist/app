@@ -19,6 +19,8 @@ import { getUser } from "@/app/actions/user"
 import { generateDashboardSummary } from "@/app/actions/analytics"
 import type { Task as TaskType, Goal as GoalType, User as UserType } from "@/lib/types"
 import { createEvent, getEvents } from "@/app/actions/events"
+import { getMettaPySchedule } from "@/app/actions/metta_py"
+import { getScheduleSuggestions } from "@/app/actions/scheduler"
 
 interface ApiGoalType {
   id: number
@@ -46,6 +48,7 @@ export default function EnhancedDashboard() {
   const [openEvent, setOpenEvent] = React.useState(false)
   const [fabOpen, setFabOpen] = React.useState(false)
   const fabRef = React.useRef<HTMLDivElement | null>(null)
+  const [schedule, setSchedule] = React.useState<Array<{ id: number; title: string; order?: number; score?: number; tags?: string[]; reason?: string }>>([])
 
   React.useEffect(() => {
     loadData()
@@ -141,6 +144,27 @@ export default function EnhancedDashboard() {
 
       if (eventsResult && eventsResult.success) {
         setEvents(eventsResult.events)
+      }
+
+      // Also fetch schedule from Python Metta service if env configured
+      try {
+        if (tasksResult.success && (process.env.NEXT_PUBLIC_ENABLE_METTA_PY || process.env.METTA_SERVICE_URL)) {
+          const pyTasks = (tasksResult.tasks || []).filter((t: any) => !t.completed).map((t: any) => ({
+            id: t.id,
+            title: t.title,
+            priority: Math.max(0, Math.min(10, Math.round((t.alignment_score || 0) / 10))),
+            deadline: null,
+            depends_on: [],
+          }))
+          if (pyTasks.length) {
+            const py = await getMettaPySchedule(pyTasks)
+            if (py && py.success) {
+              setSchedule(py.order.slice(0, 5))
+            }
+          }
+        }
+      } catch (e) {
+        console.warn("MettaPy schedule unavailable:", e)
       }
     } catch (error) {
       console.error("Failed to load data:", error)
@@ -307,6 +331,38 @@ export default function EnhancedDashboard() {
             </p>
           </div>
           <CircularProgress value={calculateAlignmentScore()} label="AI Analyzed" indicatorColor="#28A745" />
+        </CardContent>
+      </Card>
+
+      {/* Metta Planner */}
+      <Card className="mb-6">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base font-medium flex items-center gap-2">
+            <Sparkles className="h-4 w-4 text-[#28A745]" /> Metta Planner
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {schedule.length === 0 ? (
+            <div className="text-sm text-[#6B7280]">No personalized suggestions yet. Add tasks to see rule-based recommendations.</div>
+          ) : (
+            <div className="space-y-2">
+              {schedule.map((s) => (
+                <div key={s.id} className="flex items-center justify-between rounded-lg border p-3">
+                  <div className="min-w-0">
+                    <div className="text-sm font-medium truncate max-w-[14rem]">{s.title}</div>
+                    {s.reason && <div className="text-xs text-[#6B7280] truncate max-w-[16rem]">{s.reason}</div>}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {typeof s.order === 'number' && <span className="text-xs px-2 py-1 rounded bg-[#28A745]/10 text-[#28A745]">#{(s.order || 0)+1}</span>}
+                    {typeof s.score === 'number' && <span className="text-xs px-2 py-1 rounded bg-[#28A745]/10 text-[#28A745]">{s.score}</span>}
+                    {(s.tags || []).slice(0,2).map((tag) => (
+                      <span key={String(tag)} className="text-[10px] px-2 py-0.5 rounded border text-[#6B7280]">{String(tag)}</span>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </CardContent>
       </Card>
 
