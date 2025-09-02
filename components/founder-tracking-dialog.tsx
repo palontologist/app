@@ -79,9 +79,19 @@ export default function FounderTrackingDialog({
             />
           </div>
 
+          <div className="grid gap-2">
+            <Label htmlFor="organization-id">Use existing workspace (Organization ID) — optional</Label>
+            <Input
+              id="organization-id"
+              name="organizationId"
+              placeholder="org_... (leave empty to create new)"
+              disabled={isSubmitting}
+            />
+          </div>
+
           <div className="flex items-center gap-2">
             <input id="send-invite" name="sendInvite" type="checkbox" defaultChecked className="h-4 w-4" />
-            <Label htmlFor="send-invite">Send email invite to join workspace</Label>
+            <Label htmlFor="send-invite">Send email invite (requires email)</Label>
           </div>
 
           <div className="grid gap-2">

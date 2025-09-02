@@ -72,6 +72,7 @@ export async function addFounder(formData: FormData) {
     const founderEmail = formData.get("founderEmail") as string
     const sendInvite = (formData.get("sendInvite") as string) === "on" || (formData.get("sendInvite") as string) === "true"
     const workspaceName = (formData.get("workspaceName") as string) || companyName || "Startup Workspace"
+    const organizationIdFromForm = (formData.get("organizationId") as string) || ""
     const industry = formData.get("industry") as string
     const stage = formData.get("stage") as string
     const mission = formData.get("mission") as string
@@ -111,13 +112,26 @@ export async function addFounder(formData: FormData) {
 
     // Attempt to create or reuse an organization and send an invitation
     let inviteResult: any = null
-    if (founderEmail && sendInvite) {
+    if (sendInvite) {
+      if (!founderEmail) {
+        return { success: false, error: "Email is required to send an invitation" }
+      }
       try {
-        // 1) Create a new organization for this workspace (or reuse if desired)
-        const organization = await clerkClient.organizations.createOrganization({
-          name: workspaceName,
-          createdBy: userId,
-        } as any)
+        // 1) Use existing organization if provided via form or env; else create a new one
+        const defaultOrgId = process.env.CLERK_DEFAULT_ORG_ID
+        let organizationId = organizationIdFromForm || defaultOrgId || ""
+        let organization: any = null
+
+        if (organizationId) {
+          // @ts-ignore tolerate SDK differences
+          organization = await clerkClient.organizations.getOrganization({ organizationId })
+        } else {
+          organization = await clerkClient.organizations.createOrganization({
+            name: workspaceName,
+            createdBy: userId,
+          } as any)
+        }
+
         newFounder.organization_id = organization.id
 
         // 2) Send invitation to founder's email
