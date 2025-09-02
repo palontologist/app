@@ -63,7 +63,7 @@ export async function getFounders() {
 
 export async function addFounder(formData: FormData) {
   try {
-    const { userId } = await auth()
+    const { userId, orgId: authOrgId } = await auth()
     if (!userId) {
       return { success: false, error: "Unauthenticated" }
     }
@@ -119,7 +119,7 @@ export async function addFounder(formData: FormData) {
       try {
         // 1) Use existing organization if provided via form or env; else create a new one
         const defaultOrgId = process.env.CLERK_DEFAULT_ORG_ID
-        let organizationId = organizationIdFromForm || defaultOrgId || ""
+        let organizationId = organizationIdFromForm || defaultOrgId || authOrgId || ""
         let organization: any = null
 
         if (organizationId) {
@@ -134,18 +134,30 @@ export async function addFounder(formData: FormData) {
 
         newFounder.organization_id = organization.id
 
-        // 2) Send invitation to founder's email
-        // Fallback role to 'org:member'; adjust if you have custom roles
-        // Different Clerk SDK versions use slightly different method names; this one is common.
-        // @ts-ignore - tolerate SDK typing differences across versions
-        inviteResult = await clerkClient.organizations.createInvitation({
-          organizationId: organization.id,
-          emailAddress: founderEmail,
-          inviterUserId: userId,
-          role: 'org:member',
-        })
-        newFounder.invitation_id = inviteResult?.id || null
-        newFounder.status = "invited"
+        // 2) If a user with this email already exists, add membership immediately
+        // @ts-ignore tolerate SDK differences
+        const userList = await clerkClient.users.getUserList({ emailAddress: [founderEmail] })
+        const existing = (userList?.data || [])[0]
+        if (existing && existing.id) {
+          // @ts-ignore tolerate SDK differences
+          await clerkClient.organizations.createMembership({
+            organizationId: organization.id,
+            userId: existing.id,
+            role: 'org:member',
+          })
+          newFounder.status = "member"
+        } else {
+          // 3) Otherwise, send invitation to founder's email
+          // @ts-ignore - tolerate SDK typing differences across versions
+          inviteResult = await clerkClient.organizations.createInvitation({
+            organizationId: organization.id,
+            emailAddress: founderEmail,
+            inviterUserId: userId,
+            role: 'org:member',
+          })
+          newFounder.invitation_id = inviteResult?.id || null
+          newFounder.status = "invited"
+        }
       } catch (inviteError) {
         console.warn("Founder invite failed:", inviteError)
         // Keep the founder record; just report that the invite step failed

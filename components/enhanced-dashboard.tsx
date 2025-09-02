@@ -19,6 +19,7 @@ import { getUser } from "@/app/actions/user"
 import { generateDashboardSummary, getCachedDashboardSummary } from "@/app/actions/analytics"
 import type { Task as TaskType, Goal as GoalType, User as UserType } from "@/lib/types"
 import { createEvent, getEvents } from "@/app/actions/events"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 interface ApiGoalType {
   id: number
@@ -46,6 +47,8 @@ export default function EnhancedDashboard() {
   const [openEvent, setOpenEvent] = React.useState(false)
   const [fabOpen, setFabOpen] = React.useState(false)
   const fabRef = React.useRef<HTMLDivElement | null>(null)
+  const [tasksView, setTasksView] = React.useState<"active" | "completed">("active")
+  const [goalsView, setGoalsView] = React.useState<"active" | "completed">("active")
 
   React.useEffect(() => {
     loadData()
@@ -206,6 +209,13 @@ export default function EnhancedDashboard() {
     return Math.round(totalScore / tasks.length)
   }
 
+  const isGoalCompleted = (g: GoalType) => {
+    const currentVal = Number(g.current_value || 0)
+    const targetVal = g.target_value == null ? null : Number(g.target_value)
+    if (targetVal == null) return currentVal > 0
+    return currentVal >= targetVal
+  }
+
   const getAlignmentColor = (category: string) => {
     switch (category) {
       case "high":
@@ -283,6 +293,13 @@ export default function EnhancedDashboard() {
           >
             <BarChart3 className="h-4 w-4" />
           </Link>
+          <Link
+            href="/history"
+            className="inline-flex h-9 items-center justify-center rounded-md border bg-background px-3 text-sm hover:bg-accent hover:text-accent-foreground"
+            aria-label="Open History"
+          >
+            History
+          </Link>
         </nav>
       </header>
 
@@ -318,41 +335,64 @@ export default function EnhancedDashboard() {
         </CardContent>
       </Card>
 
+      {/* Quick History access above filters */}
+      <div className="mb-3 flex justify-end">
+        <Button asChild size="sm" variant="outline" className="text-[#28A745] border-[#28A745] hover:bg-[#28A745] hover:text-white">
+          <Link href="/history">History</Link>
+        </Button>
+      </div>
+
       {/* Enhanced Goal Progress with Management */}
       <Card className="mb-6">
         <CardHeader className="pb-3 flex flex-row items-center justify-between">
           <CardTitle className="text-base font-medium">Personal Goals</CardTitle>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => setOpenGoals(true)}
-            className="text-[#28A745] border-[#28A745] hover:bg-[#28A745] hover:text-white"
-          >
-            <Plus className="h-3 w-3 mr-1" />
-            Add Goal
-          </Button>
+          <div className="flex items-center gap-2">
+            <Tabs value={goalsView} onValueChange={(v) => setGoalsView(v as any)}>
+              <TabsList>
+                <TabsTrigger value="active">Active</TabsTrigger>
+                <TabsTrigger value="completed">Completed</TabsTrigger>
+              </TabsList>
+            </Tabs>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setOpenGoals(true)}
+              className="text-[#28A745] border-[#28A745] hover:bg-[#28A745] hover:text-white"
+            >
+              <Plus className="h-3 w-3 mr-1" />
+              Add Goal
+            </Button>
+          </div>
         </CardHeader>
         <CardContent className="space-y-4">
-          {goals.length === 0 ? (
-            <div className="text-center py-6">
-              <Target className="mx-auto h-8 w-8 text-[#D1D5DB] mb-2" />
-              <p className="text-sm text-[#6B7280] mb-3">Set personal goals to track your progress</p>
-              <Button
-                size="sm"
-                onClick={() => setOpenGoals(true)}
-                className="text-white bg-[#28A745] hover:bg-[#23923d]"
-              >
-                <Plus className="mr-2 h-4 w-4" />
-                Set Your First Goal
-              </Button>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {goals.slice(0, 3).map((goal) => (
-                <EnhancedGoalManagement key={goal.id} goal={goal} onGoalUpdated={loadData} />
-              ))}
-            </div>
-          )}
+          {(() => {
+            const filtered = goals.filter((g) => goalsView === "active" ? !isGoalCompleted(g) : isGoalCompleted(g))
+            if (filtered.length === 0) {
+              return (
+                <div className="text-center py-6">
+                  <Target className="mx-auto h-8 w-8 text-[#D1D5DB] mb-2" />
+                  <p className="text-sm text-[#6B7280] mb-3">No {goalsView} goals</p>
+                  {goalsView === 'active' && (
+                    <Button
+                      size="sm"
+                      onClick={() => setOpenGoals(true)}
+                      className="text-white bg-[#28A745] hover:bg-[#23923d]"
+                    >
+                      <Plus className="mr-2 h-4 w-4" />
+                      Set Your First Goal
+                    </Button>
+                  )}
+                </div>
+              )
+            }
+            return (
+              <div className="space-y-4">
+                {filtered.slice(0, 3).map((goal) => (
+                  <EnhancedGoalManagement key={goal.id} goal={goal} onGoalUpdated={loadData} />
+                ))}
+              </div>
+            )
+          })()}
         </CardContent>
       </Card>
 
@@ -363,6 +403,14 @@ export default function EnhancedDashboard() {
         <h2 id="today-tasks-heading" className="mb-3 text-sm font-medium text-[#374151]">
           Smart Tasks ({tasks.length})
         </h2>
+        <div className="mb-3">
+          <Tabs value={tasksView} onValueChange={(v) => setTasksView(v as any)}>
+            <TabsList>
+              <TabsTrigger value="active">Active</TabsTrigger>
+              <TabsTrigger value="completed">Completed</TabsTrigger>
+            </TabsList>
+          </Tabs>
+        </div>
         {tasks.length === 0 ? (
           <Card>
             <CardContent className="flex flex-col items-center justify-center py-12 text-center">
@@ -379,7 +427,9 @@ export default function EnhancedDashboard() {
           </Card>
         ) : (
           <div className="space-y-3">
-            {tasks.map((task) => (
+            {tasks
+              .filter((t) => tasksView === 'active' ? !t.completed : !!t.completed)
+              .map((task) => (
               <TaskWithTimer key={task.id} task={task} onTaskUpdated={loadData} />
             ))}
           </div>

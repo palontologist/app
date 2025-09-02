@@ -4,5 +4,3 @@ CREATE TABLE IF NOT EXISTS dashboard_insights (
   content TEXT,
   updated_at INTEGER DEFAULT (unixepoch() * 1000)
 );
-
-
