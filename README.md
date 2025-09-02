@@ -110,6 +110,14 @@ pnpm build && pnpm start  # production build
 ```
 
 ## Roadmap
+- Auto-prioritization: rank tasks, activities, and goals by alignment, urgency, and impact
+- UX cleanup: simplify pages, remove repetition, make core flows faster and clearer
+- Remove Smart Tasks placeholder insight: hide or replace “AI analysis placeholder” with real insights only
+- Custom ROI metrics: time spent, money earned, and values alignment with editable targets
+- Goal horizons: support short-term vs long-term goals with distinct views and cadences
+- Robust analytics: trend lines, slippage, velocity/throughput, cohorts, and goal health scoring
+- Chat with Greta: conversational planning, prioritization, and actionable suggestions
+- Social/community: find friends, follow founders, share impact snapshots, lightweight community building
 - Goal templates and suggested metrics per mission category
 - Notifications and nudges (e.g., stale goals, low alignment days)
 - Rich notes for tasks and goals (separate tables)
