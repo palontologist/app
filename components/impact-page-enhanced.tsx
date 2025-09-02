@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import Link from "next/link"
-import { ArrowLeft, Globe, Users, TrendingUp, Heart, Target, Calendar, Plus, Edit, Clock, Trash2, Lightbulb, Settings } from "lucide-react"
+import { ArrowLeft, Globe, Users, TrendingUp, Heart, Target, Calendar, Plus, Edit, Clock, Trash2, Lightbulb, Settings, DollarSign } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
 import { Badge } from "@/components/ui/badge"
@@ -36,6 +36,7 @@ export default function ImpactPageEnhanced() {
   const [workSessions, setWorkSessions] = React.useState<any[]>([])
   const [aiSuggestions, setAISuggestions] = React.useState<any[]>([])
   const [loadingSuggestions, setLoadingSuggestions] = React.useState(false)
+  const [roiSummary, setRoiSummary] = React.useState<{ hours: number; completedGoals: number; completedTasks: number }>({ hours: 0, completedGoals: 0, completedTasks: 0 })
 
   React.useEffect(() => {
     loadData()
@@ -75,6 +76,14 @@ export default function ImpactPageEnhanced() {
       else if (foundersResult && !foundersResult.success) setFounders([])
 
       if (sessionsResult && sessionsResult.success) setWorkSessions(sessionsResult.sessions || [])
+      // Simple ROI: total hours from sessions, plus derived counts if available in metrics
+      try {
+        const totalMinutes = (sessionsResult?.sessions || []).reduce((sum: number, s: any) => sum + (s.duration_minutes || 0), 0)
+        const hours = Math.round((totalMinutes / 60) * 100) / 100
+        const completedGoals = Object.values(metricsResult?.metrics || {}).filter((m: any) => m.category === 'goals' && Number(m.current) >= Number(m.target)).length
+        const completedTasks = (metricsResult?.metrics?.weekly_completion_rate?.current || 0)
+        setRoiSummary({ hours, completedGoals, completedTasks })
+      } catch {}
       else if (sessionsResult && !sessionsResult.success) setWorkSessions([])
     } catch (error) {
       console.error("Failed to load impact data:", error)
@@ -266,6 +275,23 @@ export default function ImpactPageEnhanced() {
               <Heart className="h-3 w-3" />
               <span>Track smart metrics that reflect your real progress toward this mission</span>
             </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* ROI Summary */}
+      <Card className="mb-4 sm:mb-6">
+        <CardHeader className="pb-2 sm:pb-3">
+          <CardTitle className="flex items-center gap-2 text-sm sm:text-base">
+            <DollarSign className="h-4 w-4 text-[#28A745] sm:h-5 sm:w-5" />
+            Your ROI Snapshot
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <RoiTile label="Aligned Hours" value={`${roiSummary.hours}h`} />
+            <RoiTile label="Goals Completed" value={`${roiSummary.completedGoals}`} />
+            <RoiTile label="Tasks Completed (wk)" value={`${roiSummary.completedTasks}`} />
           </div>
         </CardContent>
       </Card>
@@ -573,6 +599,15 @@ function ValueCard({
           </Badge>
         ))}
       </div>
+    </div>
+  )
+}
+
+function RoiTile({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-lg border p-3 sm:p-4">
+      <div className="text-xs text-[#6B7280] mb-1">{label}</div>
+      <div className="text-lg font-semibold">{value}</div>
     </div>
   )
 }

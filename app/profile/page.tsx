@@ -26,7 +26,7 @@ export default async function ProfilePage() {
   return (
     <ProfileContent 
       user={userResult.user}
-      goals={goals}
+      goals={goals.map((g: any) => ({ ...g, type: g.type || g.category === 'personal' ? 'personal' : 'startup' }))}
       tasks={tasks}
     />
   )

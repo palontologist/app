@@ -40,6 +40,7 @@ export const goals = sqliteTable("goals", {
   title: text("title").notNull(),
   description: text("description"),
   category: text("category"),
+  goalType: text("goal_type"),
   currentValue: integer("current_value").default(0),
   targetValue: integer("target_value"),
   unit: text("unit"),
