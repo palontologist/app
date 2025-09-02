@@ -293,6 +293,13 @@ export default function EnhancedDashboard() {
           >
             <BarChart3 className="h-4 w-4" />
           </Link>
+          <Link
+            href="/history"
+            className="inline-flex h-9 items-center justify-center rounded-md border bg-background px-3 text-sm hover:bg-accent hover:text-accent-foreground"
+            aria-label="Open History"
+          >
+            History
+          </Link>
         </nav>
       </header>
 
