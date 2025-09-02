@@ -63,7 +63,7 @@ export async function getFounders() {
 
 export async function addFounder(formData: FormData) {
   try {
-    const { userId } = await auth()
+    const { userId, orgId: authOrgId } = await auth()
     if (!userId) {
       return { success: false, error: "Unauthenticated" }
     }
@@ -119,7 +119,7 @@ export async function addFounder(formData: FormData) {
       try {
         // 1) Use existing organization if provided via form or env; else create a new one
         const defaultOrgId = process.env.CLERK_DEFAULT_ORG_ID
-        let organizationId = organizationIdFromForm || defaultOrgId || ""
+        let organizationId = organizationIdFromForm || defaultOrgId || authOrgId || ""
         let organization: any = null
 
         if (organizationId) {
