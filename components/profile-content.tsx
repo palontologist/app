@@ -41,6 +41,7 @@ interface ProfileContentProps {
     title: string
     description: string | null
     category: string | null
+    type?: string | null
     current_value: number
     target_value: number | null
     unit: string | null
@@ -323,9 +324,16 @@ export default function ProfileContent({ user, goals, tasks }: ProfileContentPro
                             <Target className="h-4 w-4 text-[#28A745]" />
                           )}
                           <div>
-                            <p className={`font-medium ${isCompleted ? "text-green-700" : ""}`}>
-                              {goal.title}
-                            </p>
+                            <div className="flex items-center gap-2">
+                              <p className={`font-medium ${isCompleted ? "text-green-700" : ""}`}>
+                                {goal.title}
+                              </p>
+                              {goal.type && (
+                                <Badge variant="outline" className="text-xs">
+                                  {goal.type === 'startup' ? 'Startup' : 'Personal'}
+                                </Badge>
+                              )}
+                            </div>
                             <p className="text-xs text-gray-500">
                               {goal.current_value.toLocaleString()} / {goal.target_value?.toLocaleString()} {goal.unit}
                             </p>

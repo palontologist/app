@@ -1,4 +1,4 @@
-CREATE TABLE `user_profiles` (
+CREATE TABLE IF NOT EXISTS `user_profiles` (
 	`user_id` text PRIMARY KEY NOT NULL,
 	`name` text,
 	`mission` text,

@@ -40,7 +40,7 @@ export default function GoalsDialog({ open = false, onOpenChange, onGoalCreated 
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Target className="h-4 w-4 text-[#28A745]" />
-            Set Personal Goal
+            Create Goal
           </DialogTitle>
         </DialogHeader>
         <form action={handleSubmit} className="grid gap-4">
@@ -82,6 +82,19 @@ export default function GoalsDialog({ open = false, onOpenChange, onGoalCreated 
                 </SelectContent>
               </Select>
             </div>
+          </div>
+
+          <div className="grid gap-2">
+            <Label htmlFor="goalType">Goal Type</Label>
+            <Select name="goalType" disabled={isSubmitting}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select type" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="personal">Personal</SelectItem>
+                <SelectItem value="startup">Startup</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
           <div className="grid gap-2">

@@ -70,6 +70,31 @@ export default function FounderTrackingDialog({
           </div>
 
           <div className="grid gap-2">
+            <Label htmlFor="workspace-name">Workspace Name</Label>
+            <Input
+              id="workspace-name"
+              name="workspaceName"
+              placeholder="e.g., Greta Startup Workspace"
+              disabled={isSubmitting}
+            />
+          </div>
+
+          <div className="grid gap-2">
+            <Label htmlFor="organization-id">Use existing workspace (Organization ID) — optional</Label>
+            <Input
+              id="organization-id"
+              name="organizationId"
+              placeholder="org_... (leave empty to create new)"
+              disabled={isSubmitting}
+            />
+          </div>
+
+          <div className="flex items-center gap-2">
+            <input id="send-invite" name="sendInvite" type="checkbox" defaultChecked className="h-4 w-4" />
+            <Label htmlFor="send-invite">Send email invite (requires email)</Label>
+          </div>
+
+          <div className="grid gap-2">
             <Label htmlFor="company-name">Company Name (Optional)</Label>
             <Input id="company-name" name="companyName" placeholder="Startup Inc." disabled={isSubmitting} />
           </div>
@@ -87,9 +112,7 @@ export default function FounderTrackingDialog({
 
           <div className="rounded-lg bg-[#28A745]/5 p-3 border border-[#28A745]/20">
             <p className="text-xs text-[#28A745] font-medium mb-1">📈 Impact Tracking</p>
-            <p className="text-xs text-[#6B7280]">
-              This will increment your "Founders Onboarded" metric and track real impact on your mission.
-            </p>
+            <p className="text-xs text-[#6B7280]">Invite collaborators to a shared workspace; they will receive an email to join, create their account, and start contributing.</p>
           </div>
 
           <Button type="submit" className="w-full text-white bg-[#28A745] hover:bg-[#23923d]" disabled={isSubmitting}>

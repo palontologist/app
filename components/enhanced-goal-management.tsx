@@ -13,7 +13,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Target, Plus, CheckCircle, Calendar, Trash2, StickyNote, Edit } from "lucide-react"
 import { addGoalNote, getGoalNotes, getGoalContributingTasks, addGoalActivity, getGoalActivities, completeGoalActivity } from "@/app/actions/goals"
 import { deleteGoal, markGoalComplete } from "@/app/actions/goals"
-import { incrementGoalProgress } from "@/app/actions/analytics_snapshot"
+import { incrementGoalProgress, generateDashboardSummary } from "@/app/actions/analytics"
 import type { Goal } from "@/lib/types"
 
 type EnhancedGoalManagementProps = {
@@ -130,6 +130,7 @@ export default function EnhancedGoalManagement({ goal, onGoalUpdated }: Enhanced
       if (openDialog) {
         loadGoalData()
       }
+      try { await generateDashboardSummary() } catch {}
     }
   }
 
