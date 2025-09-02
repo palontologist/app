@@ -272,7 +272,6 @@ export async function generateDashboardSummary() {
     }
   }
 }
-
 export async function getCachedDashboardSummary() {
   try {
     const { userId } = await auth()
