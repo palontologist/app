@@ -335,6 +335,13 @@ export default function EnhancedDashboard() {
         </CardContent>
       </Card>
 
+      {/* Quick History access above filters */}
+      <div className="mb-3 flex justify-end">
+        <Button asChild size="sm" variant="outline" className="text-[#28A745] border-[#28A745] hover:bg-[#28A745] hover:text-white">
+          <Link href="/history">History</Link>
+        </Button>
+      </div>
+
       {/* Enhanced Goal Progress with Management */}
       <Card className="mb-6">
         <CardHeader className="pb-3 flex flex-row items-center justify-between">
