@@ -1,4 +1,4 @@
-CREATE TABLE `events` (
+CREATE TABLE IF NOT EXISTS `events` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`user_id` text NOT NULL,
 	`title` text NOT NULL,
@@ -10,7 +10,7 @@ CREATE TABLE `events` (
 	`created_at` integer DEFAULT (unixepoch() * 1000) NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE `goal_activities` (
+CREATE TABLE IF NOT EXISTS `goal_activities` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`goal_id` integer NOT NULL,
 	`user_id` text NOT NULL,
@@ -21,7 +21,7 @@ CREATE TABLE `goal_activities` (
 	`updated_at` integer DEFAULT (unixepoch() * 1000) NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE `goals` (
+CREATE TABLE IF NOT EXISTS `goals` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`user_id` text NOT NULL,
 	`title` text NOT NULL,
@@ -36,7 +36,7 @@ CREATE TABLE `goals` (
 	`updated_at` integer DEFAULT (unixepoch() * 1000) NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE `tasks` (
+CREATE TABLE IF NOT EXISTS `tasks` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`user_id` text NOT NULL,
 	`goal_id` integer,
@@ -51,7 +51,7 @@ CREATE TABLE `tasks` (
 	`updated_at` integer DEFAULT (unixepoch() * 1000) NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE `work_sessions` (
+CREATE TABLE IF NOT EXISTS `work_sessions` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`user_id` text NOT NULL,
 	`task_id` integer,
