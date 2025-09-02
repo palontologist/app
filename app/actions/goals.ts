@@ -26,6 +26,7 @@ function mapGoal(row: typeof goals.$inferSelect) {
     user_id: row.userId,
     title: row.title,
     description: row.description,
+    type: row.goalType || 'personal',
     target_value: row.targetValue,
     current_value: row.currentValue,
     unit: row.unit,
@@ -68,6 +69,8 @@ export async function createGoal(formData: FormData) {
     
     const categoryValue = formData.get("category")
     const category = typeof categoryValue === 'string' ? categoryValue : "personal"
+    const goalTypeValue = formData.get("goalType")
+    const goalType = typeof goalTypeValue === 'string' ? goalTypeValue : 'personal'
     
     const deadlineRaw = formData.get("deadline")
     
@@ -97,6 +100,7 @@ export async function createGoal(formData: FormData) {
       currentValue: 0,
       unit,
       category,
+      goalType,
       deadline: deadline, // Use Date object directly
       updatedAt: timestamp,
     }).returning()
@@ -254,6 +258,23 @@ export async function getGoalActivities(goalId: number) {
     return { success: true, activities: rows.map(mapActivity) }
   } catch (error) {
     console.error("Failed to get goal activities:", error)
+    return { success: false, error: "Failed to load activities", activities: [] }
+  }
+}
+
+// Fetch all goal activities for the current user (for History page)
+export async function getAllGoalActivities() {
+  try {
+    const { userId } = await auth()
+    if (!userId) return { success: false, error: "Unauthenticated", activities: [] }
+    const rows = await db
+      .select()
+      .from(goalActivities)
+      .where(eq(goalActivities.userId, userId))
+      .orderBy(desc(goalActivities.createdAt))
+    return { success: true, activities: rows.map(mapActivity) }
+  } catch (error) {
+    console.error("Failed to get all goal activities:", error)
     return { success: false, error: "Failed to load activities", activities: [] }
   }
 }

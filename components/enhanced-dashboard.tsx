@@ -16,7 +16,7 @@ import TaskWithTimer from "@/components/task-with-timer"
 import { getTasks, toggleTaskCompletion, deleteTask } from "@/app/actions/tasks"
 import { getGoals } from "@/app/actions/goals"
 import { getUser } from "@/app/actions/user"
-import { generateDashboardSummary } from "@/app/actions/analytics"
+import { generateDashboardSummary, getCachedDashboardSummary } from "@/app/actions/analytics"
 import type { Task as TaskType, Goal as GoalType, User as UserType } from "@/lib/types"
 import { createEvent, getEvents } from "@/app/actions/events"
 
@@ -148,8 +148,13 @@ export default function EnhancedDashboard() {
       setLoading(false)
     }
     
-    // Generate AI summary after loading is complete
-    generateAlignmentSummary()
+    // Try cache first, then compute if missing
+    const cached = await getCachedDashboardSummary()
+    if (cached && cached.success && cached.summary) {
+      setAlignmentSummary(cached.summary)
+    } else {
+      generateAlignmentSummary()
+    }
   }
 
   const generateAlignmentSummary = async () => {
@@ -182,6 +187,9 @@ export default function EnhancedDashboard() {
       };
       
       setTasks((prev) => prev.map((t) => (t.id === taskId ? updatedTask as TaskType : t)))
+      // Regenerate and persist fresh summary after task change
+      const fresh = await generateDashboardSummary()
+      if (fresh.success) setAlignmentSummary(fresh.summary)
     }
   }
 
