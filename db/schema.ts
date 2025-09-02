@@ -103,3 +103,10 @@ export const goalActivities = sqliteTable("goal_activities", {
 });
 
 // NOTE: Add unique index for (userId, lower(title)) on goals via migration for idempotent inserts.
+
+// Dashboard insights cache table
+export const dashboardInsights = sqliteTable("dashboard_insights", {
+  userId: text("user_id").primaryKey(),
+  content: text("content"),
+  updatedAt: integer("updated_at", { mode: "timestamp_ms" }).default(sql`(unixepoch() * 1000)`),
+});

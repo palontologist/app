@@ -1,7 +1,7 @@
 "use server"
 
 import { auth } from "@clerk/nextjs/server"
-import { db, tasks, goals, events } from "@/lib/db"
+import { db, tasks, goals, events, dashboardInsights } from "@/lib/db"
 import { eq, desc } from "drizzle-orm"
 import { getUser } from "@/app/actions/user"
 import { generatePersonalizedInsights } from "@/lib/ai"
@@ -205,6 +205,20 @@ export async function generateDashboardSummary() {
       summary = `${avgScore}% alignment score. ${tasksMapped.length === 0 ? "Add tasks to get AI insights." : "Focus on completing high-alignment tasks."}`
     }
 
+    // Persist to cache
+    try {
+      const now = new Date()
+      // Upsert pattern for libsql via insert OR update on conflict by PK
+      // Some libsql setups support 'insert ... on conflict do update'; fallback to try/catch
+      try {
+        await db.insert(dashboardInsights).values({ userId, content: summary, updatedAt: now as any })
+      } catch {
+        await db.update(dashboardInsights).set({ content: summary, updatedAt: now as any }).where(eq(dashboardInsights.userId, userId))
+      }
+    } catch (cacheErr) {
+      console.warn('Failed to persist dashboard insight cache:', cacheErr)
+    }
+
     return { success: true, summary }
   } catch (error) {
     console.error("Failed to generate dashboard summary:", error)
@@ -212,5 +226,18 @@ export async function generateDashboardSummary() {
       success: false, 
       summary: "Unable to analyze alignment at this time. Add tasks and goals to get AI insights." 
     }
+  }
+}
+
+export async function getCachedDashboardSummary() {
+  try {
+    const { userId } = await auth()
+    if (!userId) return { success: false, summary: null }
+    const rows = await db.select().from(dashboardInsights).where(eq(dashboardInsights.userId, userId))
+    if (!rows.length) return { success: true, summary: null }
+    return { success: true, summary: rows[0].content as string }
+  } catch (error) {
+    console.warn('Failed to read dashboard insight cache:', error)
+    return { success: false, summary: null }
   }
 }
