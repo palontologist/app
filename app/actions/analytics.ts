@@ -284,3 +284,60 @@ export async function getCachedDashboardSummary() {
     return { success: false, summary: null }
   }
 }
+
+// Manual metrics management for impact tracking
+export async function createManualMetric(formData: FormData) {
+  try {
+    const { userId } = await auth()
+    if (!userId) return { success: false, error: "Unauthenticated" }
+
+    const title = formData.get("title") as string
+    const description = formData.get("description") as string
+    const currentValue = parseInt(formData.get("currentValue") as string) || 0
+    const targetValue = parseInt(formData.get("targetValue") as string) || 0
+    const unit = formData.get("unit") as string
+
+    if (!title?.trim()) return { success: false, error: "Title is required" }
+
+    // For now, we'll store manual metrics as goals with a special category
+    const inserted = await db.insert(goals).values({
+      userId,
+      title: title.trim(),
+      description: description || null,
+      category: "manual_metric",
+      goalType: "personal",
+      currentValue,
+      targetValue,
+      unit: unit || null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    }).returning()
+
+    return { success: true, metric: inserted[0] }
+  } catch (error) {
+    console.error("Failed to create manual metric:", error)
+    return { success: false, error: "Failed to create metric" }
+  }
+}
+
+export async function updateManualMetric(metricId: number, newValue: number) {
+  try {
+    const { userId } = await auth()
+    if (!userId) return { success: false, error: "Unauthenticated" }
+
+    const updated = await db.update(goals)
+      .set({ 
+        currentValue: newValue, 
+        updatedAt: new Date()
+      })
+      .where(eq(goals.id, metricId))
+      .returning()
+
+    if (!updated.length) return { success: false, error: "Metric not found" }
+
+    return { success: true, metric: updated[0] }
+  } catch (error) {
+    console.error("Failed to update manual metric:", error)
+    return { success: false, error: "Failed to update metric" }
+  }
+}
