@@ -24,6 +24,7 @@ import {
 } from "lucide-react"
 import { SignOutButton } from "@clerk/nextjs"
 import { updateUser } from "@/app/actions/user"
+import Link from "next/link"
 
 interface ProfileContentProps {
   user: {
@@ -111,6 +112,12 @@ export default function ProfileContent({ user, goals, tasks }: ProfileContentPro
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
+                  <Link href="/api/google/auth/start">
+                    <Button className="bg-[#4285F4] hover:bg-[#3367d6] text-white">
+                      <Calendar className="h-4 w-4 mr-2" />
+                      Connect Google Calendar
+                    </Button>
+                  </Link>
                   <Dialog open={isEditing} onOpenChange={setIsEditing}>
                     <DialogTrigger asChild>
                       <Button variant="outline" className="text-[#28A745] border-[#28A745]">

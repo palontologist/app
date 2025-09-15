@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { customType, sqliteTable, text, integer } from "drizzle-orm/sqlite-core";
+import { customType, sqliteTable, text, integer, uniqueIndex } from "drizzle-orm/sqlite-core";
 
 const float32Array = customType<{
   data: number[];
@@ -110,3 +110,29 @@ export const dashboardInsights = sqliteTable("dashboard_insights", {
   content: text("content"),
   updatedAt: integer("updated_at", { mode: "timestamp_ms" }).default(sql`(unixepoch() * 1000)`),
 });
+
+// Google accounts and tokens table (one Google account per app user)
+export const googleAccounts = sqliteTable(
+  "google_accounts",
+  {
+    userId: text("user_id").primaryKey(), // Clerk user id
+    googleUserId: text("google_user_id").notNull(),
+    email: text("email"),
+    accessToken: text("access_token"),
+    refreshToken: text("refresh_token").notNull(),
+    expiryDate: integer("expiry_date"), // ms epoch
+    scope: text("scope"),
+    tokenType: text("token_type"),
+    createdAt: integer("created_at", { mode: "timestamp_ms" })
+      .notNull()
+      .default(sql`(unixepoch() * 1000)`),
+    updatedAt: integer("updated_at", { mode: "timestamp_ms" })
+      .notNull()
+      .default(sql`(unixepoch() * 1000)`),
+  },
+  (table) => ({
+    googleUserUnique: uniqueIndex("google_accounts_google_user_id_unique").on(
+      table.googleUserId
+    ),
+  })
+);
