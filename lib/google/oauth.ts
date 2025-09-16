@@ -17,6 +17,7 @@ export function getAuthUrl(scopes?: string[]): string {
     'email',
     'profile',
     'https://www.googleapis.com/auth/calendar.readonly',
+    'https://www.googleapis.com/auth/calendar.events',
   ]
   return client.generateAuthUrl({
     access_type: 'offline',
@@ -31,5 +32,6 @@ export const defaultCalendarScopes = [
   'email',
   'profile',
   'https://www.googleapis.com/auth/calendar.readonly',
+  'https://www.googleapis.com/auth/calendar.events',
 ]
 
