@@ -144,6 +144,32 @@ export const marketBets = sqliteTable("market_bets", {
   marketId: text("market_id").notNull(),
   side: text("side").notNull(), // 'YES' | 'NO'
   amountCents: integer("amount_cents").notNull(),
+  priceCents: integer("price_cents").notNull().default(50),
+  sharesMilli: integer("shares_milli").notNull().default(0), // shares * 1000
+  payoutCents: integer("payout_cents").notNull().default(0),
+  settled: integer("settled", { mode: "boolean" }).notNull().default(false),
+  settledAt: integer("settled_at", { mode: "timestamp_ms" }),
   region: text("region"), // 'LATAM' | 'AFRICA' | 'GLOBAL'
   createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().default(sql`(unixepoch() * 1000)`),
+})
+
+// Markets master table
+export const markets = sqliteTable("markets", {
+  id: text("id").primaryKey(),
+  title: text("title").notNull(),
+  description: text("description"),
+  region: text("region"), // 'LATAM' | 'AFRICA' | 'GLOBAL'
+  settlementDateISO: text("settlement_date_iso").notNull(), // YYYY-MM-DD
+  status: text("status").notNull().default('OPEN'), // OPEN | RESOLVED | CANCELLED
+  yesPriceCents: integer("yes_price_cents").notNull().default(50),
+  noPriceCents: integer("no_price_cents").notNull().default(50),
+  threshold: text("threshold"), // numeric as string for flexibility
+  unit: text("unit"),
+  source: text("source"),
+  sourceUrl: text("source_url"),
+  outcome: text("outcome"), // YES | NO | N/A
+  actualValue: text("actual_value"),
+  resolvedAt: integer("resolved_at", { mode: "timestamp_ms" }),
+  createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().default(sql`(unixepoch() * 1000)`),
+  updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull().default(sql`(unixepoch() * 1000)`),
 })

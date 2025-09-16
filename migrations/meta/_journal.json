@@ -29,6 +29,13 @@
       "when": 1758041183997,
       "tag": "0003_mushy_karma",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1758041514653,
+      "tag": "0004_sour_gorgon",
+      "breakpoints": true
     }
   ]
 }
