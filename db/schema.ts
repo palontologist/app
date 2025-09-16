@@ -136,3 +136,14 @@ export const googleAccounts = sqliteTable(
     ),
   })
 );
+
+// Market bets table (simple demo; expand as needed)
+export const marketBets = sqliteTable("market_bets", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  userId: text("user_id").notNull(),
+  marketId: text("market_id").notNull(),
+  side: text("side").notNull(), // 'YES' | 'NO'
+  amountCents: integer("amount_cents").notNull(),
+  region: text("region"), // 'LATAM' | 'AFRICA' | 'GLOBAL'
+  createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().default(sql`(unixepoch() * 1000)`),
+})

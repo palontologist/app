@@ -6,6 +6,7 @@ export type Market = {
   unit?: string
   source?: string
   threshold?: number
+  region?: 'LATAM' | 'AFRICA' | 'GLOBAL'
 }
 
 export type Commodity = {
@@ -49,6 +50,7 @@ export const coffeeCommodity: Commodity = {
         unit: '60kg bags',
         source: 'CECAFÉ',
         threshold: 3.5e6,
+        region: 'LATAM',
       })
 
       markets.push({
@@ -59,6 +61,44 @@ export const coffeeCommodity: Commodity = {
         unit: 'COP/125kg',
         source: 'FNC',
         threshold: 1_500_000,
+        region: 'LATAM',
+      })
+    }
+    return markets
+  },
+}
+
+// Africa coffee placeholder markets (e.g., Ethiopia ECX coffee prices)
+export const africaCoffeeCommodity: Commodity = {
+  key: 'coffee-africa',
+  name: 'Coffee (Africa)',
+  template: (asof: Date) => {
+    const months = [0, 1, 2]
+    const markets: Market[] = []
+    for (const m of months) {
+      const monthStart = addMonths(asof, m)
+      const settleDate = endOfMonth(monthStart)
+      const settleISO = formatISODate(settleDate)
+      const ym = `${settleDate.getUTCFullYear()}-${String(settleDate.getUTCMonth() + 1).padStart(2, '0')}`
+
+      markets.push({
+        id: `et-coffee-price-${ym}`,
+        title: `Will Ethiopia export-grade coffee spot index rise m/m by ${settleISO}?`,
+        description: 'Proxy based on export-grade spot index; replace with your data source',
+        settlementDateISO: settleISO,
+        unit: 'ETB/kg',
+        source: 'Custom',
+        region: 'AFRICA',
+      })
+
+      markets.push({
+        id: `ugx-coffee-robusta-${ym}`,
+        title: `Will Uganda Robusta farmgate price exceed prior month by ${settleISO}?`,
+        description: 'Based on Uganda Robusta farmgate price; replace with official source',
+        settlementDateISO: settleISO,
+        unit: 'UGX/kg',
+        source: 'Custom',
+        region: 'AFRICA',
       })
     }
     return markets
@@ -66,7 +106,7 @@ export const coffeeCommodity: Commodity = {
 }
 
 // Add a few common commodities as placeholders (gold, oil) for future expansion
-export const baseCommodities: Commodity[] = [coffeeCommodity]
+export const baseCommodities: Commodity[] = [coffeeCommodity, africaCoffeeCommodity]
 
 export function generateCurrentAndFutureMarkets(asof: Date = new Date()): Market[] {
   const list: Market[] = []
