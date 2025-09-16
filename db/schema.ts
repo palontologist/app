@@ -62,6 +62,10 @@ export const tasks = sqliteTable("tasks", {
   completed: integer("completed", { mode: "boolean" }).default(false),
   completedAt: integer("completed_at", { mode: "timestamp_ms" }),
   aiAnalysis: text("ai_analysis"),
+  // Google Calendar sync fields (for calendar events that represent tasks)
+  googleEventId: text("google_event_id"),
+  googleCalendarId: text("google_calendar_id"),
+  lastSyncedAt: integer("last_synced_at", { mode: "timestamp_ms" }),
   createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().default(sql`(unixepoch() * 1000)`),
   updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull().default(sql`(unixepoch() * 1000)`),
 });
@@ -76,6 +80,10 @@ export const events = sqliteTable("events", {
   eventType: text("event_type"),
   description: text("description"),
   metadata: text("metadata"), // JSON string
+  // Google Calendar sync fields
+  googleEventId: text("google_event_id"),
+  googleCalendarId: text("google_calendar_id"),
+  lastSyncedAt: integer("last_synced_at", { mode: "timestamp_ms" }),
   createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().default(sql`(unixepoch() * 1000)`),
 });
 

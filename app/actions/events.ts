@@ -15,6 +15,9 @@ function mapEvent(row: typeof events.$inferSelect) {
     created_at: new Date(row.createdAt).toISOString(),
     event_type: row.eventType,
     metadata: row.metadata ? JSON.parse(row.metadata) : null,
+    google_event_id: row.googleEventId,
+    google_calendar_id: row.googleCalendarId,
+    last_synced_at: row.lastSyncedAt ? new Date(row.lastSyncedAt).toISOString() : null,
   }
 }
 

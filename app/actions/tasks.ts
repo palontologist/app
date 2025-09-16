@@ -19,6 +19,9 @@ function mapTask(row: typeof tasks.$inferSelect) {
     completed_at: row.completedAt ? new Date(row.completedAt) : null,
     created_at: new Date(row.createdAt),
     updated_at: new Date(row.updatedAt),
+    google_event_id: row.googleEventId,
+    google_calendar_id: row.googleCalendarId,
+    last_synced_at: row.lastSyncedAt ? new Date(row.lastSyncedAt) : null,
   }
 }
 
