@@ -5,6 +5,7 @@ export type Market = {
   settlementDateISO: string // YYYY-MM-DD
   unit?: string
   source?: string
+  sourceUrl?: string
   threshold?: number
   region?: 'LATAM' | 'AFRICA' | 'GLOBAL'
 }
@@ -82,22 +83,26 @@ export const africaCoffeeCommodity: Commodity = {
       const ym = `${settleDate.getUTCFullYear()}-${String(settleDate.getUTCMonth() + 1).padStart(2, '0')}`
 
       markets.push({
-        id: `et-coffee-price-${ym}`,
-        title: `Will Ethiopia export-grade coffee spot index rise m/m by ${settleISO}?`,
-        description: 'Proxy based on export-grade spot index; replace with your data source',
+        id: `et-exports-0_25m-${ym}`,
+        title: `Will Ethiopia monthly coffee exports exceed 0.25M bags by ${settleISO}?`,
+        description: 'Based on Ethiopia Coffee and Tea Authority monthly export reports',
         settlementDateISO: settleISO,
-        unit: 'ETB/kg',
-        source: 'Custom',
+        unit: '60kg bags',
+        source: 'Ethiopian Coffee and Tea Authority',
+        sourceUrl: 'https://ecta.gov.et/',
+        threshold: 250000,
         region: 'AFRICA',
       })
 
       markets.push({
-        id: `ugx-coffee-robusta-${ym}`,
-        title: `Will Uganda Robusta farmgate price exceed prior month by ${settleISO}?`,
-        description: 'Based on Uganda Robusta farmgate price; replace with official source',
+        id: `ug-exports-0_6m-${ym}`,
+        title: `Will Uganda monthly coffee exports exceed 0.60M bags by ${settleISO}?`,
+        description: 'Based on Uganda Coffee Development Authority monthly export reports',
         settlementDateISO: settleISO,
-        unit: 'UGX/kg',
-        source: 'Custom',
+        unit: '60kg bags',
+        source: 'Uganda Coffee Development Authority',
+        sourceUrl: 'https://ugandacoffee.go.ug/',
+        threshold: 600000,
         region: 'AFRICA',
       })
     }
