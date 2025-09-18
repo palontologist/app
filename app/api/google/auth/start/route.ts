@@ -8,7 +8,19 @@ export async function GET() {
     return NextResponse.redirect(new URL('/sign-in', process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'))
   }
 
-  const url = getAuthUrl(defaultCalendarScopes)
-  return NextResponse.redirect(url)
+  try {
+    const { GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REDIRECT_URI } = process.env
+    if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET || !GOOGLE_REDIRECT_URI) {
+      const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+      return NextResponse.redirect(new URL('/profile?google_error=missing_env', appUrl))
+    }
+
+    const url = getAuthUrl(defaultCalendarScopes)
+    return NextResponse.redirect(url)
+  } catch (e) {
+    console.error('auth/start error', e)
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+    return NextResponse.redirect(new URL('/profile?google_error=auth_start_failed', appUrl))
+  }
 }
 
