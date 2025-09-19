@@ -65,11 +65,26 @@ Add to `.env.local` (or hosting secrets):
 TURSO_DATABASE_URL=libsql://...
 TURSO_AUTH_TOKEN=...
 
-CLERK_PUBLISHABLE_KEY=...
-CLERK_SECRET_KEY=...
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_...
+CLERK_SECRET_KEY=sk_test_...
 # Optional default org to invite into (else new org is created per invite or by form)
 CLERK_DEFAULT_ORG_ID=org_...
+
+# Google OAuth for calendar integration
+GOOGLE_CLIENT_ID=your-google-client-id
+GOOGLE_CLIENT_SECRET=your-google-client-secret
+GOOGLE_REDIRECT_URI=https://your-domain.com/api/google/auth/callback
+
+# Application URL
+NEXT_PUBLIC_APP_URL=https://your-domain.com
 ```
+
+### Required Redirect URIs
+**📝 See [REDIRECT_URIS.md](./REDIRECT_URIS.md) for complete list of redirect URIs to register in Clerk and Google Cloud Console.**
+
+#### Quick Reference:
+- **Clerk**: `https://your-domain.com/sign-in`, `https://your-domain.com/sign-up`
+- **Google OAuth**: `https://your-domain.com/api/google/auth/callback`
 
 ## Setup
 ```bash
