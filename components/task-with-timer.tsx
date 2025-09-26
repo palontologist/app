@@ -223,7 +223,25 @@ export default function TaskWithTimer({ task, onTaskUpdated }: TaskWithTimerProp
                 >
                   {task.title}
                 </label>
+
+                {/* Mission Pillar Badge */}
+                {task.mission_pillar && (
+                  <Badge variant="outline" className="text-xs mt-1 mr-2 bg-[#28A745]/10 text-[#28A745] border-[#28A745]/30">
+                    📍 {task.mission_pillar}
+                  </Badge>
+                )}
+
                 {task.description && <p className="text-xs text-[#6B7280] mt-1">{task.description}</p>}
+
+                {/* Impact Statement */}
+                {task.impact_statement && (
+                  <div className="mt-2 p-2 rounded-md bg-blue-50 border border-blue-200">
+                    <div className="flex items-start gap-1">
+                      <TrendingUp className="h-3 w-3 text-blue-600 mt-0.5 flex-shrink-0" />
+                      <p className="text-xs text-blue-700 font-medium">{task.impact_statement}</p>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
             <div className="flex items-center gap-2">

@@ -58,6 +58,25 @@ export default function SmartTaskDialog({ open = false, onOpenChange }: SmartTas
               disabled={isSubmitting}
             />
           </div>
+          <div className="grid gap-2">
+            <Label htmlFor="missionPillar">Mission Pillar (Optional)</Label>
+            <Input
+              id="missionPillar"
+              name="missionPillar"
+              placeholder="e.g., Customer Acquisition, Product Development"
+              disabled={isSubmitting}
+            />
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="impactStatement">Impact Statement (Optional)</Label>
+            <Textarea
+              id="impactStatement"
+              name="impactStatement"
+              placeholder="This task will help by..."
+              rows={2}
+              disabled={isSubmitting}
+            />
+          </div>
           <div className="rounded-lg bg-[#28A745]/5 p-3 border border-[#28A745]/20">
             <p className="text-xs text-[#28A745] font-medium mb-1">🚀 Groq-Powered Analysis</p>
             <p className="text-xs text-[#6B7280]">
