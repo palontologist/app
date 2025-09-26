@@ -4,9 +4,17 @@ import type { OAuth2Client } from 'google-auth-library'
 const { GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REDIRECT_URI } = process.env
 
 export function createOAuthClient(): OAuth2Client {
-  if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET || !GOOGLE_REDIRECT_URI) {
-    throw new Error('Missing Google OAuth env vars')
+  const missing = []
+  if (!GOOGLE_CLIENT_ID) missing.push('GOOGLE_CLIENT_ID')
+  if (!GOOGLE_CLIENT_SECRET) missing.push('GOOGLE_CLIENT_SECRET')
+  if (!GOOGLE_REDIRECT_URI) missing.push('GOOGLE_REDIRECT_URI')
+
+  if (missing.length > 0) {
+    console.error('Missing Google OAuth environment variables:', missing.join(', '))
+    throw new Error(`Missing Google OAuth environment variables: ${missing.join(', ')}`)
   }
+
+  console.log('Google OAuth client created successfully')
   return new google.auth.OAuth2(GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REDIRECT_URI)
 }
 
@@ -18,12 +26,17 @@ export function getAuthUrl(scopes?: string[]): string {
     'profile',
     'https://www.googleapis.com/auth/calendar.readonly',
   ]
-  return client.generateAuthUrl({
+
+  console.log('Google OAuth: Generating auth URL with scopes:', finalScopes.join(' '))
+  const authUrl = client.generateAuthUrl({
     access_type: 'offline',
     prompt: 'consent',
     include_granted_scopes: true,
     scope: finalScopes,
   })
+
+  console.log('Google OAuth: Generated auth URL')
+  return authUrl
 }
 
 export const defaultCalendarScopes = [
