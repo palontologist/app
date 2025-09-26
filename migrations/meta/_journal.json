@@ -29,6 +29,13 @@
       "when": 1757945050435,
       "tag": "0002_same_pyro",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1756899972538,
+      "tag": "0003_curvy_nomad",
+      "breakpoints": true
     }
   ]
 }

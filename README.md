@@ -110,7 +110,24 @@ pnpm build && pnpm start  # production build
 ```
 
 ## Roadmap
-- Auto-prioritization: rank tasks, activities, and goals by alignment, urgency, and impact
+
+### 🚀 **Immediate Focus (Next Sprint)**
+- **Cofounder & Team Management**
+  - ✅ Email invitations for cofounders via Clerk Organizations
+  - 🔄 **IN PROGRESS**: Enhanced workspace switching (Personal vs Startup)
+  - 🔄 **IN PROGRESS**: Team member roles and permissions
+  - 📋 **TODO**: Cofounder dashboard with team metrics and shared goals
+  - 📋 **TODO**: Notification system for team activities and goal updates
+
+- **Enhanced Workspace Experience**
+  - 🔄 **IN PROGRESS**: Workspace context switching in navigation
+  - 📋 **TODO**: Separate goal/task views for Personal vs Startup workspaces
+  - 📋 **TODO**: Team workspace analytics and alignment scores
+  - 📋 **TODO**: Shared mission alignment across team members
+
+### 🎯 **Short-term (Next 2-4 weeks)**
+- **Improved User Experience**
+  - Auto-prioritization: rank tasks, activities, and goals by alignment, urgency, and impact
 - UX cleanup: simplify pages, remove repetition, make core flows faster and clearer
 - Remove Smart Tasks placeholder insight: hide or replace “AI analysis placeholder” with real insights only
 - Custom ROI metrics: time spent, money earned, and values alignment with editable targets
