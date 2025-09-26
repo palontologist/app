@@ -18,6 +18,10 @@ export type Task = {
   alignment_score: number | null
   alignment_category: string | null
   ai_analysis: string | null
+  mission_pillar: string | null
+  impact_statement: string | null
+  ai_suggestions: string | null
+  weekly_reflection_notes: string | null
   completed: boolean | null
   completed_at: Date | null
   created_at: Date
@@ -33,6 +37,11 @@ export type Goal = {
   current_value: number | null
   unit: string | null
   category: string | null
+  alignment_score: number | null
+  alignment_category: string | null
+  mission_pillar: string | null
+  impact_statement: string | null
+  ai_suggestions: string | null
   deadline: Date | null
   created_at: Date
   updated_at: Date

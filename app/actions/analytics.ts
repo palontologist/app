@@ -1,8 +1,8 @@
 "use server"
 
 import { auth } from "@clerk/nextjs/server"
-import { db, tasks, goals, events, dashboardInsights } from "@/lib/db"
-import { eq, desc } from "drizzle-orm"
+import { db, tasks, goals, events, dashboardInsights, alignmentHistory } from "@/lib/db"
+import { eq, desc, and, sql } from "drizzle-orm"
 import { getUser } from "@/app/actions/user"
 import { generatePersonalizedInsights } from "@/lib/ai"
 // Backward-compatible export for impact pages expecting this function
@@ -282,5 +282,115 @@ export async function getCachedDashboardSummary() {
   } catch (error) {
     console.warn('Failed to read dashboard insight cache:', error)
     return { success: false, summary: null }
+  }
+}
+
+export async function saveHistoricalAlignmentData() {
+  try {
+    const { userId } = await auth()
+    if (!userId) return { success: false, error: "Unauthenticated" }
+
+    const today = new Date().toISOString().split('T')[0]
+
+    // Get current tasks and goals
+    const tasksResult = await db.select().from(tasks).where(eq(tasks.userId, userId))
+    const goalsResult = await db.select().from(goals).where(eq(goals.userId, userId))
+
+    const completedTasks = tasksResult.filter(t => t.completed)
+    const highAlignmentTasks = tasksResult.filter(t => (t.alignmentScore || 0) >= 80)
+    const distractionTasks = tasksResult.filter(t => t.alignmentCategory === "distraction")
+
+    const completedGoals = goalsResult.filter(g => {
+      const current = g.currentValue || 0
+      const target = g.targetValue || 1
+      return current >= target
+    })
+
+    const overallAlignmentScore = tasksResult.length > 0
+      ? Math.round(tasksResult.reduce((sum, t) => sum + (t.alignmentScore || 0), 0) / tasksResult.length)
+      : 0
+
+    // Check if we already have data for today
+    const existing = await db.select().from(alignmentHistory)
+      .where(and(eq(alignmentHistory.userId, userId), eq(alignmentHistory.date, today)))
+
+    if (existing.length > 0) {
+      // Update existing record
+      await db.update(alignmentHistory).set({
+        overallAlignmentScore,
+        completedTasksCount: completedTasks.length,
+        totalTasksCount: tasksResult.length,
+        highAlignmentTasks: highAlignmentTasks.length,
+        distractionTasks: distractionTasks.length,
+        completedGoalsCount: completedGoals.length,
+        totalGoalsCount: goalsResult.length,
+      }).where(and(eq(alignmentHistory.userId, userId), eq(alignmentHistory.date, today)))
+    } else {
+      // Create new record
+      await db.insert(alignmentHistory).values({
+        userId,
+        date: today,
+        overallAlignmentScore,
+        completedTasksCount: completedTasks.length,
+        totalTasksCount: tasksResult.length,
+        highAlignmentTasks: highAlignmentTasks.length,
+        distractionTasks: distractionTasks.length,
+        completedGoalsCount: completedGoals.length,
+        totalGoalsCount: goalsResult.length,
+      })
+    }
+
+    return { success: true }
+  } catch (error) {
+    console.error("Failed to save historical alignment data:", error)
+    return { success: false, error: "Failed to save data" }
+  }
+}
+
+export async function getHistoricalAlignmentData(days: number = 30) {
+  try {
+    const { userId } = await auth()
+    if (!userId) return { success: false, error: "Unauthenticated" }
+
+    const endDate = new Date()
+    const startDate = new Date()
+    startDate.setDate(startDate.getDate() - days)
+
+    const rows = await db.select().from(alignmentHistory)
+      .where(and(
+        eq(alignmentHistory.userId, userId),
+        sql`${alignmentHistory.date} >= ${startDate.toISOString().split('T')[0]}`
+      ))
+      .orderBy(alignmentHistory.date)
+
+    // Fill in missing days with zero values
+    const dataMap = new Map(rows.map(row => [row.date, row]))
+    const filledData = []
+
+    for (let i = 0; i <= days; i++) {
+      const date = new Date(startDate)
+      date.setDate(startDate.getDate() + i)
+      const dateStr = date.toISOString().split('T')[0]
+
+      if (dataMap.has(dateStr)) {
+        filledData.push(dataMap.get(dateStr))
+      } else {
+        filledData.push({
+          date: dateStr,
+          overallAlignmentScore: 0,
+          completedTasksCount: 0,
+          totalTasksCount: 0,
+          highAlignmentTasks: 0,
+          distractionTasks: 0,
+          completedGoalsCount: 0,
+          totalGoalsCount: 0,
+        })
+      }
+    }
+
+    return { success: true, data: filledData }
+  } catch (error) {
+    console.error("Failed to get historical alignment data:", error)
+    return { success: false, error: "Failed to load data", data: [] }
   }
 }

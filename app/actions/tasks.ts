@@ -1,9 +1,11 @@
 "use server"
 
 import { auth } from "@clerk/nextjs/server"
-import { db, tasks, workSessions, now, goals } from "@/lib/db"
+import { db, tasks, workSessions, now, goals, userProfiles } from "@/lib/db"
 import { eq, and, desc, sql, ilike } from "drizzle-orm"
 import { revalidatePath } from "next/cache"
+import { analyzeTaskAlignment } from "@/lib/ai"
+import { saveHistoricalAlignmentData } from "@/app/actions/analytics"
 
 function mapTask(row: typeof tasks.$inferSelect) {
   return {
@@ -39,17 +41,19 @@ export async function createTask(formDataOrTitle: FormData | string, description
     // Handle both FormData and direct string input
     let title: string = '';
     let description: string | null = null;
-  let alignmentCategory: string | null = null;
-  let goalId: number | null = null;
+    let alignmentCategory: string | null = null;
+    let goalId: number | null = null;
+    let missionPillar: string | null = null;
+    let impactStatement: string | null = null;
     
     if (formDataOrTitle instanceof FormData) {
       // Extract values from FormData
       const titleValue = formDataOrTitle.get('title');
       title = typeof titleValue === 'string' ? titleValue : '';
-      
+
       const descValue = formDataOrTitle.get('description');
       description = typeof descValue === 'string' ? descValue : null;
-      
+
       const alignmentValue = formDataOrTitle.get('alignmentCategory');
       alignmentCategory = typeof alignmentValue === 'string' ? alignmentValue : 'medium';
       const goalValue = formDataOrTitle.get('goalId');
@@ -57,6 +61,12 @@ export async function createTask(formDataOrTitle: FormData | string, description
         const parsed = parseInt(goalValue, 10)
         goalId = Number.isNaN(parsed) ? null : parsed
       }
+
+      const pillarValue = formDataOrTitle.get('missionPillar');
+      missionPillar = typeof pillarValue === 'string' ? pillarValue : null;
+
+      const impactValue = formDataOrTitle.get('impactStatement');
+      impactStatement = typeof impactValue === 'string' ? impactValue : null;
     } else {
       // Direct string parameters
       title = String(formDataOrTitle || '');
@@ -93,18 +103,68 @@ export async function createTask(formDataOrTitle: FormData | string, description
         console.warn('Auto goal-link heuristic failed:', e)
       }
     }
+    // Get user profile for AI analysis
+    const userProfile = await db.select().from(userProfiles).where(eq(userProfiles.userId, userId))
+
+    // Perform AI alignment analysis
+    let aiAnalysis = null
+    let alignmentScore = 50
+    let alignmentCategory = "medium"
+    let aiSuggestions = null
+
+    // Use user-provided values as fallbacks, but let AI override with better suggestions
+    let finalMissionPillar = missionPillar
+    let finalImpactStatement = impactStatement
+
+    try {
+      const analysis = await analyzeTaskAlignment(
+        String(title).trim(),
+        description || "",
+        userProfile[0]?.mission || "",
+        userProfile[0]?.worldVision || "",
+        userProfile[0]?.missionPillars ? JSON.parse(userProfile[0].missionPillars) : undefined
+      )
+
+      aiAnalysis = analysis.analysis
+      alignmentScore = analysis.alignment_score || 50
+      alignmentCategory = analysis.alignment_category || "medium"
+      aiSuggestions = analysis.suggestions
+
+      // Only use AI suggestions if user didn't provide values
+      if (!finalMissionPillar && analysis.mission_pillar) {
+        finalMissionPillar = analysis.mission_pillar
+      }
+      if (!finalImpactStatement && analysis.impact_statement) {
+        finalImpactStatement = analysis.impact_statement
+      }
+    } catch (error) {
+      console.error("AI analysis failed:", error)
+      aiAnalysis = "Unable to analyze alignment at this time."
+    }
+
     const inserted = await db.insert(tasks).values({
       userId,
-  title: String(title).trim(),
+      title: String(title).trim(),
       description: description || null,
-  goalId: goalId,
-      alignmentScore: Math.floor(Math.random() * 40) + 60,
-      alignmentCategory: alignmentCategory || "medium",
-      aiAnalysis: "AI analysis placeholder",
+      goalId: goalId,
+      alignmentScore: alignmentScore,
+      alignmentCategory: alignmentCategory,
+      aiAnalysis: aiAnalysis,
+      missionPillar: finalMissionPillar,
+      impactStatement: finalImpactStatement,
+      aiSuggestions: aiSuggestions,
       completed: false,
       updatedAt: new Date(),
     }).returning()
     revalidatePath("/dashboard")
+
+    // Save historical alignment data when task is created
+    try {
+      await saveHistoricalAlignmentData()
+    } catch (error) {
+      console.warn("Failed to save historical data:", error)
+    }
+
     return { success: true, task: mapTask(inserted[0]) }
   } catch (error) {
     console.error("Failed to create task:", error)
@@ -154,6 +214,16 @@ export async function toggleTaskCompletion(taskId: number) {
 
     revalidatePath("/dashboard")
     revalidatePath("/impact")
+
+    // Save historical alignment data when task is completed
+    if (completed) {
+      try {
+        await saveHistoricalAlignmentData()
+      } catch (error) {
+        console.warn("Failed to save historical data:", error)
+      }
+    }
+
     return { success: true, task: mapTask(updated[0]) }
   } catch (error) {
     console.error("Failed to toggle task completion:", error)

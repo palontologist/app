@@ -119,6 +119,27 @@ export default function GoalsDialog({ open = false, onOpenChange, onGoalCreated 
             <Input id="deadline" name="deadline" type="date" disabled={isSubmitting} />
           </div>
 
+          <div className="grid gap-2">
+            <Label htmlFor="missionPillar">Mission Pillar (Optional)</Label>
+            <Input
+              id="missionPillar"
+              name="missionPillar"
+              placeholder="e.g., Customer Acquisition, Product Development, Team Building"
+              disabled={isSubmitting}
+            />
+          </div>
+
+          <div className="grid gap-2">
+            <Label htmlFor="impactStatement">Impact Statement (Optional)</Label>
+            <Textarea
+              id="impactStatement"
+              name="impactStatement"
+              placeholder="This goal will help by..."
+              rows={2}
+              disabled={isSubmitting}
+            />
+          </div>
+
           <Button type="submit" className="w-full text-white bg-[#28A745] hover:bg-[#23923d]" disabled={isSubmitting}>
             {isSubmitting ? (
               <>
