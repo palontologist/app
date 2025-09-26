@@ -170,3 +170,19 @@ export const googleAccounts = sqliteTable(
     ),
   })
 );
+
+// Historical alignment tracking
+export const alignmentHistory = sqliteTable("alignment_history", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  userId: text("user_id").notNull(),
+  date: text("date").notNull(), // YYYY-MM-DD
+  overallAlignmentScore: integer("overall_alignment_score").notNull(),
+  completedTasksCount: integer("completed_tasks_count").default(0),
+  totalTasksCount: integer("total_tasks_count").default(0),
+  highAlignmentTasks: integer("high_alignment_tasks").default(0),
+  distractionTasks: integer("distraction_tasks").default(0),
+  completedGoalsCount: integer("completed_goals_count").default(0),
+  totalGoalsCount: integer("total_goals_count").default(0),
+  aiInsightsSummary: text("ai_insights_summary"),
+  createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().default(sql`(unixepoch() * 1000)`),
+});

@@ -85,11 +85,11 @@ export default function OnboardingFlow() {
             <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-[#28A745]/10">
               <Target className="h-8 w-8 text-[#28A745]" />
             </div>
-            <CardTitle className="text-xl">Welcome to greta</CardTitle>
+            <CardTitle className="text-xl">Welcome to Greta</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <p className="text-center text-[#6B7280]">
-              {"Let's start by getting to know you and defining what success looks like for your venture."}
+              Ship what matters. Greta powers founders with Mission Alignment & AI Insights to help you achieve customer traction, not just busywork.
             </p>
             <div className="space-y-3">
               <Label htmlFor="founder-name">What should we call you?</Label>

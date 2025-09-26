@@ -151,7 +151,25 @@ export default function EnhancedGoalManagement({ goal, onGoalUpdated }: Enhanced
               <Target className="h-4 w-4 text-[#28A745]" />
               {goal.title}
             </CardTitle>
+
+            {/* Mission Pillar Badge */}
+            {goal.mission_pillar && (
+              <Badge variant="outline" className="text-xs mt-1 mr-2 bg-[#28A745]/10 text-[#28A745] border-[#28A745]/30 w-fit">
+                📍 {goal.mission_pillar}
+              </Badge>
+            )}
+
             <p className="text-xs text-[#6B7280] mt-1">{goal.description}</p>
+
+            {/* Impact Statement */}
+            {goal.impact_statement && (
+              <div className="mt-2 p-2 rounded-md bg-blue-50 border border-blue-200">
+                <div className="flex items-start gap-1">
+                  <Target className="h-3 w-3 text-blue-600 mt-0.5 flex-shrink-0" />
+                  <p className="text-xs text-blue-700 font-medium">{goal.impact_statement}</p>
+                </div>
+              </div>
+            )}
           </div>
           <div className="flex items-center gap-1">
             {/* Quick action buttons */}

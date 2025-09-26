@@ -38,44 +38,49 @@ export default async function LandingPage() {
 
       <section className="relative mx-auto flex max-w-md flex-col items-center px-6 pt-24 text-center sm:max-w-lg sm:pt-28">
         <h1 id="onboarding-title" className="text-3xl font-semibold tracking-tight sm:text-4xl">
-          {"Align Your Action. Achieve Your Vision."}
+          Ship What Matters.
         </h1>
         <p className="mt-4 text-base text-[#4B5563] sm:text-lg">
-          {
-            "greta helps you connect your daily work to your ultimate goal. Track time, build habits, achieve your mission."
-          }
+          Greta powers founders with Mission Alignment & AI Insight.
+        </p>
+        <p className="mt-4 text-sm text-[#6B7280] sm:text-base">
+          Every task you complete moves you toward your deepest goals. Greta shows your real Mission Alignment Score, then gives you AI-powered suggestions for what to do next—so you achieve customer traction, not just busywork.
         </p>
 
         <div className="mt-8 space-y-3">
-          <Link href="/sign-in?redirect_url=/onboarding" aria-label="Get Started with greta">
+          <Link href="/sign-in?redirect_url=/onboarding" aria-label="Get Started Free with greta">
             <Button
               className="h-11 rounded-full px-6 text-white bg-[#28A745] hover:bg-[#23923d] transition-colors w-full"
               size="lg"
             >
-              Get Started
+              Get Started Free
               <ArrowRight className="ml-2 h-4 w-4" />
             </Button>
           </Link>
         </div>
 
-        {/* Features */}
+        <div className="mt-4 text-sm text-[#6B7280]">
+          Start making your impact visible.
+        </div>
+
+        {/* Key Features */}
         <div className="mt-12 grid gap-4 text-left w-full max-w-sm">
           <div className="flex items-center gap-3">
             <div className="w-2 h-2 rounded-full bg-[#28A745]"></div>
-            <span className="text-sm text-[#6B7280]">Time tracking with smart task detection</span>
+            <span className="text-sm text-[#6B7280]">Mission Alignment Score: see progress, not just completion</span>
           </div>
           <div className="flex items-center gap-3">
             <div className="w-2 h-2 rounded-full bg-[#28A745]"></div>
-            <span className="text-sm text-[#6B7280]">Goal progress with activity breakdown</span>
+            <span className="text-sm text-[#6B7280]">AI Insights: actionable steps for lasting traction</span>
           </div>
           <div className="flex items-center gap-3">
             <div className="w-2 h-2 rounded-full bg-[#28A745]"></div>
-            <span className="text-sm text-[#6B7280]">AI-powered alignment insights</span>
+            <span className="text-sm text-[#6B7280]">Transparent Analytics: know what moves you closer to your vision</span>
           </div>
         </div>
 
-        {/* Footer hint */}
-        <p className="mt-16 text-xs text-[#6B7280]">{"Minimal. Focused. Built for founders."}</p>
+        {/* Footer */}
+        <p className="mt-16 text-xs text-[#6B7280]">Built for founders, makers, and doers.</p>
       </section>
     </main>
   )

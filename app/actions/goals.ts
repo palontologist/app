@@ -1,9 +1,10 @@
 "use server"
 
 import { auth } from "@clerk/nextjs/server"
-import { db, goals, goalActivities, now, tasks } from "@/lib/db"
+import { db, goals, goalActivities, now, tasks, userProfiles } from "@/lib/db"
 import { eq, and, desc, sql } from "drizzle-orm"
 import { revalidatePath } from "next/cache"
+import { analyzeGoalAlignment } from "@/lib/ai"
 
 // Map DB row -> client shape (keeping camelCase variants if needed)
 function mapGoal(row: typeof goals.$inferSelect) {
@@ -31,6 +32,11 @@ function mapGoal(row: typeof goals.$inferSelect) {
     current_value: row.currentValue,
     unit: row.unit,
     category: row.category,
+    alignment_score: row.alignmentScore,
+    alignment_category: row.alignmentCategory,
+    mission_pillar: row.missionPillar,
+    impact_statement: row.impactStatement,
+    ai_suggestions: row.aiSuggestions,
     deadline: safeDate(row.deadline),
     created_at: safeDate(row.createdAt) || new Date(),
     updated_at: safeDate(row.updatedAt) || new Date(),
@@ -73,7 +79,7 @@ export async function createGoal(formData: FormData) {
     const goalType = typeof goalTypeValue === 'string' ? goalTypeValue : 'personal'
     
     const deadlineRaw = formData.get("deadline")
-    
+
     // Safely handle deadline date
     let deadline: Date | null = null;
     if (typeof deadlineRaw === 'string' && deadlineRaw) {
@@ -88,8 +94,42 @@ export async function createGoal(formData: FormData) {
         deadline = null;
       }
     }
-    
+
+    // Get new fields
+    const missionPillarValue = formData.get("missionPillar")
+    const missionPillar = typeof missionPillarValue === 'string' ? missionPillarValue : null
+
+    const impactStatementValue = formData.get("impactStatement")
+    const impactStatement = typeof impactStatementValue === 'string' ? impactStatementValue : null
+
     if (!title.trim()) return { success: false, error: "Goal title is required" }
+
+    // Get user profile for AI analysis
+    const userProfile = await db.select().from(userProfiles).where(eq(userProfiles.userId, userId))
+
+    // Perform AI alignment analysis
+    let aiAnalysis = null
+    let alignmentScore = 50
+    let alignmentCategory = "medium"
+    let aiSuggestions = null
+
+    try {
+      const analysis = await analyzeGoalAlignment(
+        title.trim(),
+        description || "",
+        userProfile[0]?.mission || "",
+        userProfile[0]?.worldVision || "",
+        userProfile[0]?.missionPillars ? JSON.parse(userProfile[0].missionPillars) : undefined
+      )
+
+      aiAnalysis = analysis.analysis
+      alignmentScore = analysis.alignment_score || 50
+      alignmentCategory = analysis.alignment_category || "medium"
+      aiSuggestions = analysis.suggestions
+    } catch (error) {
+      console.error("AI analysis failed:", error)
+      aiAnalysis = "Unable to analyze alignment at this time."
+    }
 
     const timestamp = new Date() // Use Date object instead of now() timestamp
     const inserted = await db.insert(goals).values({
@@ -101,6 +141,11 @@ export async function createGoal(formData: FormData) {
       unit,
       category,
       goalType,
+      alignmentScore: alignmentScore,
+      alignmentCategory: alignmentCategory,
+      missionPillar: missionPillar,
+      impactStatement: impactStatement,
+      aiSuggestions: aiSuggestions,
       deadline: deadline, // Use Date object directly
       updatedAt: timestamp,
     }).returning()
