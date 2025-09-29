@@ -121,3 +121,16 @@
     @apply bg-background text-foreground;
   }
 }
+
+@keyframes progressFill {
+  from {
+    width: 0%;
+  }
+  to {
+    width: var(--progress-width, 60%);
+  }
+}
+
+.animate-progress-fill {
+  animation: progressFill 1.2s ease-out forwards;
+}
