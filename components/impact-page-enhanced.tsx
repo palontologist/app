@@ -75,16 +75,21 @@ export default function ImpactPageEnhanced() {
       if (foundersResult && foundersResult.success) setFounders(foundersResult.founders || [])
       else if (foundersResult && !foundersResult.success) setFounders([])
 
-      if (sessionsResult && sessionsResult.success) setWorkSessions(sessionsResult.sessions || [])
-      // Simple ROI: total hours from sessions, plus derived counts if available in metrics
-      try {
-        const totalMinutes = (sessionsResult?.sessions || []).reduce((sum: number, s: any) => sum + (s.duration_minutes || 0), 0)
-        const hours = Math.round((totalMinutes / 60) * 100) / 100
-        const completedGoals = Object.values(metricsResult?.metrics || {}).filter((m: any) => m.category === 'goals' && Number(m.current) >= Number(m.target)).length
-        const completedTasks = (metricsResult?.metrics?.weekly_completion_rate?.current || 0)
-        setRoiSummary({ hours, completedGoals, completedTasks })
-      } catch {}
-      else if (sessionsResult && !sessionsResult.success) setWorkSessions([])
+      if (sessionsResult && sessionsResult.success) {
+        setWorkSessions(sessionsResult.sessions || [])
+        // Simple ROI: total hours from sessions, plus derived counts if available in metrics
+        try {
+          const totalMinutes = (sessionsResult?.sessions || []).reduce((sum: number, s: any) => sum + (s.duration_minutes || 0), 0)
+          const hours = Math.round((totalMinutes / 60) * 100) / 100
+          const completedGoals = Object.values(metricsResult?.metrics || {}).filter((m: any) => m.category === 'goals' && Number(m.current) >= Number(m.target)).length
+          const completedTasks = (metricsResult?.metrics?.weekly_completion_rate?.current || 0)
+          setRoiSummary({ hours, completedGoals, completedTasks })
+        } catch (err) {
+          console.warn('ROI calc failed', err)
+        }
+      } else if (sessionsResult && !sessionsResult.success) {
+        setWorkSessions([])
+      }
     } catch (error) {
       console.error("Failed to load impact data:", error)
     } finally {

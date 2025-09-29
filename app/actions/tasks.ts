@@ -109,7 +109,6 @@ export async function createTask(formDataOrTitle: FormData | string, description
     // Perform AI alignment analysis
     let aiAnalysis = null
     let alignmentScore = 50
-    let alignmentCategory = "medium"
     let aiSuggestions = null
 
     // Use user-provided values as fallbacks, but let AI override with better suggestions
