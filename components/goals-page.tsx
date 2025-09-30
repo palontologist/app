@@ -29,6 +29,13 @@ type GoalsPageProps = {
   initialGoals: GoalModel[]
 }
 
+const isGoalCompleted = (goal: GoalModel) => {
+  if (goal.target_value == null) {
+    return goal.current_value > 0
+  }
+  return goal.current_value >= goal.target_value
+}
+
 function normalizeGoal(goal: any): GoalModel {
   const toISO = (value: unknown) => {
     if (!value) return null
@@ -69,16 +76,18 @@ export default function GoalsPage({ initialGoals }: GoalsPageProps) {
     })
     return drafts
   })
+  const [showCompletedGoals, setShowCompletedGoals] = React.useState(false)
 
-  const completedCount = React.useMemo(
-    () => goals.filter((goal) => {
-      if (goal.target_value == null) {
-        return goal.current_value > 0
-      }
-      return goal.current_value >= goal.target_value
-    }).length,
+  const completedGoals = React.useMemo(
+    () => goals.filter((goal) => isGoalCompleted(goal)),
     [goals]
   )
+  const activeGoals = React.useMemo(
+    () => goals.filter((goal) => !isGoalCompleted(goal)),
+    [goals]
+  )
+  const completedCount = completedGoals.length
+  const goalsToDisplay = showCompletedGoals ? completedGoals : activeGoals
 
   const refreshGoals = React.useCallback(async () => {
     setRefreshing(true)
@@ -190,6 +199,14 @@ export default function GoalsPage({ initialGoals }: GoalsPageProps) {
               type="button"
               variant="outline"
               className="border-gray-200 text-gray-700 hover:bg-gray-100"
+              onClick={() => setShowCompletedGoals((prev) => !prev)}
+            >
+              {showCompletedGoals ? "Show Active Goals" : "Show Completed Goals"}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              className="border-gray-200 text-gray-700 hover:bg-gray-100"
               onClick={refreshGoals}
               disabled={refreshing}
             >
@@ -227,19 +244,56 @@ export default function GoalsPage({ initialGoals }: GoalsPageProps) {
           </Card>
         </div>
 
-        {goals.length === 0 ? (
-          <Card className="border-dashed border-2 border-gray-300">
-            <CardContent className="py-12 text-center space-y-3">
-              <p className="text-lg font-medium text-gray-700">No goals yet</p>
-              <p className="text-sm text-gray-600">Create your first mission-aligned goal to start tracking progress.</p>
-              <Button className="bg-[#28A745] hover:bg-[#23923d] text-white" onClick={() => setDialogOpen(true)}>
-                Start a Goal
-              </Button>
-            </CardContent>
-          </Card>
+        {goalsToDisplay.length === 0 ? (
+          showCompletedGoals ? (
+            <Card className="border-dashed border-2 border-gray-300">
+              <CardContent className="py-12 text-center space-y-3">
+                <p className="text-lg font-medium text-gray-700">No completed goals yet</p>
+                <p className="text-sm text-gray-600">Once you mark goals complete they will appear here for easy reference.</p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="border-gray-200 text-gray-700 hover:bg-gray-100"
+                  onClick={() => setShowCompletedGoals(false)}
+                >
+                  Back to Active Goals
+                </Button>
+              </CardContent>
+            </Card>
+          ) : goals.length === 0 ? (
+            <Card className="border-dashed border-2 border-gray-300">
+              <CardContent className="py-12 text-center space-y-3">
+                <p className="text-lg font-medium text-gray-700">No goals yet</p>
+                <p className="text-sm text-gray-600">Create your first mission-aligned goal to start tracking progress.</p>
+                <Button className="bg-[#28A745] hover:bg-[#23923d] text-white" onClick={() => setDialogOpen(true)}>
+                  Start a Goal
+                </Button>
+              </CardContent>
+            </Card>
+          ) : (
+            <Card className="border-dashed border-2 border-gray-300">
+              <CardContent className="py-10 text-center space-y-3">
+                <p className="text-lg font-medium text-gray-700">All goals are complete</p>
+                <p className="text-sm text-gray-600">Amazing progress! Toggle to completed goals or set a fresh target.</p>
+                <div className="flex flex-wrap justify-center gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="border-gray-200 text-gray-700 hover:bg-gray-100"
+                    onClick={() => setShowCompletedGoals(true)}
+                  >
+                    View Completed Goals
+                  </Button>
+                  <Button className="bg-[#28A745] hover:bg-[#23923d] text-white" onClick={() => setDialogOpen(true)}>
+                    Create New Goal
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )
         ) : (
           <div className="grid gap-6 md:grid-cols-2">
-            {goals.map((goal) => {
+            {goalsToDisplay.map((goal) => {
               const hasTarget = goal.target_value != null && goal.target_value > 0
               const percentage = hasTarget
                 ? Math.min(100, Math.round((goal.current_value / (goal.target_value || 1)) * 100))
@@ -249,9 +303,15 @@ export default function GoalsPage({ initialGoals }: GoalsPageProps) {
               const alignmentLabel = goal.alignment_category
                 ? goal.alignment_category.charAt(0).toUpperCase() + goal.alignment_category.slice(1)
                 : "Unknown"
+              const isCompleted = isGoalCompleted(goal)
 
               return (
-                <Card key={goal.id} className="shadow-sm">
+                <Card
+                  key={goal.id}
+                  className={`shadow-sm transition-colors ${
+                    isCompleted ? 'border-green-200 bg-green-50' : ''
+                  }`}
+                >
                   <CardHeader className="space-y-2">
                     <div className="flex items-start justify-between gap-2">
                       <CardTitle className="text-lg text-gray-900">{goal.title}</CardTitle>
@@ -261,6 +321,11 @@ export default function GoalsPage({ initialGoals }: GoalsPageProps) {
                         )}
                         {goal.category && (
                           <Badge variant="outline" className="text-xs uppercase">{goal.category}</Badge>
+                        )}
+                        {isCompleted && (
+                          <Badge variant="secondary" className="bg-green-100 text-green-700 border-green-200">
+                            Completed
+                          </Badge>
                         )}
                       </div>
                     </div>
@@ -290,59 +355,79 @@ export default function GoalsPage({ initialGoals }: GoalsPageProps) {
                       <span className="text-xs text-gray-500">{percentage}% complete</span>
                     </div>
 
-                    <div className="grid grid-cols-1 gap-3">
-                      <div className="flex items-center gap-3">
-                        <Input
-                          type="number"
-                          min={0}
-                          value={progressDrafts[goal.id] ?? ""}
-                          onChange={(event) =>
-                            setProgressDrafts((prev) => ({ ...prev, [goal.id]: event.target.value }))
-                          }
-                          className="flex-1"
-                          placeholder="Update current value"
-                          disabled={inFlight && pendingGoalId === goal.id}
-                        />
-                        <Button
-                          type="button"
-                          variant="outline"
-                          onClick={() => handleProgressSubmit(goal.id)}
-                          disabled={(inFlight && pendingGoalId === goal.id) || !progressDrafts[goal.id]}
-                        >
-                          {inFlight && pendingGoalId === goal.id ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : (
-                            "Update"
-                          )}
-                        </Button>
-                      </div>
+                    {!isCompleted ? (
+                      <div className="grid grid-cols-1 gap-3">
+                        <div className="flex items-center gap-3">
+                          <Input
+                            type="number"
+                            min={0}
+                            value={progressDrafts[goal.id] ?? ""}
+                            onChange={(event) =>
+                              setProgressDrafts((prev) => ({ ...prev, [goal.id]: event.target.value }))
+                            }
+                            className="flex-1"
+                            placeholder="Update current value"
+                            disabled={inFlight && pendingGoalId === goal.id}
+                          />
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => handleProgressSubmit(goal.id)}
+                            disabled={(inFlight && pendingGoalId === goal.id) || !progressDrafts[goal.id]}
+                          >
+                            {inFlight && pendingGoalId === goal.id ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              "Update"
+                            )}
+                          </Button>
+                        </div>
 
-                      <div className="flex flex-wrap gap-2">
-                        <Button
-                          type="button"
-                          className="bg-blue-600 hover:bg-blue-700 text-white"
-                          onClick={() => handleMarkComplete(goal.id)}
-                          disabled={inFlight && pendingGoalId === goal.id}
-                        >
-                          {inFlight && pendingGoalId === goal.id ? (
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          ) : (
-                            <CheckCircle2 className="mr-2 h-4 w-4" />
-                          )}
-                          Mark complete
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          className="text-red-600 border-red-200 hover:bg-red-50"
-                          onClick={() => handleDeleteGoal(goal.id)}
-                          disabled={inFlight && pendingGoalId === goal.id}
-                        >
-                          <Trash2 className="mr-2 h-4 w-4" />
-                          Delete
-                        </Button>
+                        <div className="flex flex-wrap gap-2">
+                          <Button
+                            type="button"
+                            className="bg-blue-600 hover:bg-blue-700 text-white"
+                            onClick={() => handleMarkComplete(goal.id)}
+                            disabled={inFlight && pendingGoalId === goal.id}
+                          >
+                            {inFlight && pendingGoalId === goal.id ? (
+                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            ) : (
+                              <CheckCircle2 className="mr-2 h-4 w-4" />
+                            )}
+                            Mark complete
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            className="text-red-600 border-red-200 hover:bg-red-50"
+                            onClick={() => handleDeleteGoal(goal.id)}
+                            disabled={inFlight && pendingGoalId === goal.id}
+                          >
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            Delete
+                          </Button>
+                        </div>
                       </div>
-                    </div>
+                    ) : (
+                      <div className="rounded-md border border-green-200 bg-white/80 p-3 text-sm text-green-700">
+                        Logged as complete on{' '}
+                        {(goal.updated_at ? new Date(goal.updated_at) : new Date()).toLocaleDateString()}.
+                        Celebrate the momentum!
+                        <div className="mt-3">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            className="text-red-600 border-red-200 hover:bg-red-50"
+                            onClick={() => handleDeleteGoal(goal.id)}
+                            disabled={inFlight && pendingGoalId === goal.id}
+                          >
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            Delete
+                          </Button>
+                        </div>
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               )

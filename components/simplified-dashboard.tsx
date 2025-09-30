@@ -378,9 +378,10 @@ export default function SimplifiedDashboard() {
   const [taskCreated, setTaskCreated] = React.useState(false)
   const [completingTasks, setCompletingTasks] = React.useState<Set<number>>(new Set())
   const [taskOperations, setTaskOperations] = React.useState<Set<number>>(new Set())
-  const [showCompletedHistory, setShowCompletedHistory] = React.useState(false)
+  const [taskTab, setTaskTab] = React.useState<"active" | "completed">("active")
 
   const completedTasks = React.useMemo(() => tasks.filter((task) => task.completed), [tasks])
+  const activeTasks = React.useMemo(() => tasks.filter((task) => !task.completed), [tasks])
   const missionAlignmentScore = React.useMemo(() => {
     if (tasks.length === 0) return 0
     const totalScore = tasks.reduce((sum, task) => sum + (task.alignment_score || 0), 0)
@@ -406,9 +407,14 @@ export default function SimplifiedDashboard() {
       .slice(0, 6)
   }, [completedTasks])
 
-  React.useEffect(() => {
-    loadData()
-  }, [])
+  const tasksToRender = React.useMemo(() => {
+    if (taskTab === "active") {
+      return activeTasks.slice(0, 8)
+    }
+    return recentCompletedTasks
+  }, [taskTab, activeTasks, recentCompletedTasks])
+
+  const showActiveTasks = taskTab === "active"
 
   const loadData = React.useCallback(async (showRefresh = false) => {
     if (showRefresh) {
@@ -435,7 +441,7 @@ export default function SimplifiedDashboard() {
           created_at: userResult.user.createdAt,
           updated_at: userResult.user.updatedAt,
           mission: userResult.user.mission ? String(userResult.user.mission) : null
-        };
+        }
         setUser(mappedUser as UserType)
 
         // Generate AI insights asynchronously (non-blocking)
@@ -463,6 +469,11 @@ export default function SimplifiedDashboard() {
     }
   }, [])
 
+  React.useEffect(() => {
+    loadData()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   const handleTaskCreated = React.useCallback(() => {
     setTaskCreated(true)
     setTimeout(() => setTaskCreated(false), 2000)
@@ -486,7 +497,7 @@ export default function SimplifiedDashboard() {
     setTasks(updatedTasks)
 
     try {
-      const { toggleTaskCompletion } = await import('@/app/actions/tasks')
+      const { toggleTaskCompletion } = await import("@/app/actions/tasks")
       const result = await toggleTaskCompletion(taskId)
 
       if (!result.success) {
@@ -507,10 +518,6 @@ export default function SimplifiedDashboard() {
         return next
       })
     }
-  }, [tasks])
-
-  const orderedTasks = React.useMemo(() => {
-    return [...tasks].sort((a, b) => Number(a.completed) - Number(b.completed))
   }, [tasks])
 
   if (loading) {
@@ -606,21 +613,18 @@ export default function SimplifiedDashboard() {
                   </span>
                 </div>
               </div>
-              <div className="flex items-center justify-center gap-6">
-                <div className="text-center">
-                  <p className="text-xs uppercase tracking-wide text-gray-500">Mission Alignment</p>
-                  <p className="text-3xl font-semibold text-blue-600">{missionAlignmentScore}%</p>
+              <div className="flex w-full flex-col items-center gap-6 sm:w-auto sm:flex-row sm:justify-end">
+                <div className="flex items-center gap-4 text-center sm:flex-col sm:text-left">
+                  <div className="text-sm text-gray-600">
+                    <p className="font-semibold text-gray-900">Overall alignment</p>
+                    <p className="text-3xl font-bold text-blue-600">{missionAlignmentScore}%</p>
+                  </div>
+                  <div className="text-sm text-gray-600 hidden sm:block">
+                    <p className="font-semibold text-gray-900">Completion rate</p>
+                    <p>{completionRate}% of {tasks.length} tasks</p>
+                  </div>
                 </div>
-                <CircularProgress
-                  value={missionAlignmentScore}
-                  size={160}
-                  strokeWidth={10}
-                  indicatorColor="#3B82F6"
-                  trackColor="#E5E7EB"
-                  showInsights={false}
-                  tasks={tasks}
-                  user={user}
-                />
+               
               </div>
             </div>
           </CardContent>
@@ -632,18 +636,34 @@ export default function SimplifiedDashboard() {
           <div className="xl:col-span-2 space-y-6">
             {/* Tasks Section */}
             <Card className="transition-all duration-300 hover:shadow-lg">
-              <CardHeader className="flex flex-row items-center justify-between pb-4">
+              <CardHeader className="flex flex-col gap-3 pb-4 sm:flex-row sm:items-center sm:justify-between">
                 <CardTitle className="text-base font-medium text-gray-700">
                   Tasks
                 </CardTitle>
-                <div className="flex items-center gap-2">
+                <div className="flex w-full items-center gap-2 sm:w-auto">
                   <Button
                     type="button"
                     variant="outline"
-                    className="h-8 border-gray-200 text-gray-600 hover:bg-gray-100"
-                    onClick={() => setShowCompletedHistory((prev) => !prev)}
+                    className={`h-8 px-3 text-sm font-medium transition-colors ${
+                      showActiveTasks
+                        ? "bg-blue-600 text-white border-blue-600 hover:bg-blue-600"
+                        : "border-gray-200 text-gray-600 hover:bg-gray-100"
+                    }`}
+                    onClick={() => setTaskTab("active")}
                   >
-                    {showCompletedHistory ? "Hide Completed" : "Show Completed"}
+                    Active
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className={`h-8 px-3 text-sm font-medium transition-colors ${
+                      !showActiveTasks
+                        ? "bg-blue-600 text-white border-blue-600 hover:bg-blue-600"
+                        : "border-gray-200 text-gray-600 hover:bg-gray-100"
+                    }`}
+                    onClick={() => setTaskTab("completed")}
+                  >
+                    Completed
                   </Button>
                 </div>
               </CardHeader>
@@ -651,19 +671,60 @@ export default function SimplifiedDashboard() {
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                   {/* Tasks List */}
                   <div>
-                    {tasks.length > 0 ? (
-                      <div className="space-y-3">
-                        {orderedTasks
-                          .slice(0, 8)
-                          .map((task, index) => {
+                    {(() => {
+                      if (showActiveTasks) {
+                        if (tasks.length === 0) {
+                          return (
+                            <div className="text-center py-12 transition-all duration-300">
+                              <div className="text-gray-400 mb-4 transition-transform duration-300 hover:scale-110">
+                                <Plus className="h-12 w-12 mx-auto" />
+                              </div>
+                              <h3 className="font-medium text-gray-900 mb-2">No tasks yet</h3>
+                              <p className="text-sm text-gray-600 mb-4">
+                                Add your first task to get started with AI-powered mission alignment
+                              </p>
+                              <Button
+                                onClick={() => setOpenAdd(true)}
+                                className="bg-blue-600 hover:bg-blue-700 text-white transition-all duration-300 hover:shadow-lg hover:scale-105"
+                              >
+                                <Plus className="h-4 w-4 mr-2" />
+                                Add Task
+                              </Button>
+                            </div>
+                          )
+                        }
+
+                        if (tasksToRender.length === 0) {
+                          return (
+                            <div className="text-center py-8 border border-dashed border-gray-300 rounded-lg">
+                              <p className="font-medium text-gray-900 mb-1">All tasks are complete</p>
+                              <p className="text-sm text-gray-600">Review your wins in the completed tab.</p>
+                            </div>
+                          )
+                        }
+                      } else {
+                        if (completedTasks.length === 0) {
+                          return (
+                            <div className="text-center py-8 border border-dashed border-gray-300 rounded-lg">
+                              <p className="font-medium text-gray-900 mb-1">No completed tasks yet</p>
+                              <p className="text-sm text-gray-600">Complete a task to see it logged here.</p>
+                            </div>
+                          )
+                        }
+                      }
+
+                      return (
+                        <div className="space-y-3">
+                          {tasksToRender.map((task, index) => {
                             const isCompleting = completingTasks.has(task.id)
                             const isOperating = taskOperations.has(task.id)
+                            const isDone = !!task.completed
 
                             return (
                               <div
                                 key={task.id}
                                 className={`flex items-center gap-3 p-3 border rounded-lg transition-all duration-300 hover:shadow-sm group animate-in slide-in-from-left-2 ${
-                                  task.completed
+                                  isDone
                                     ? 'bg-green-50 border-green-200 opacity-75'
                                     : 'border-gray-200 hover:bg-gray-50 hover:border-blue-300 hover:scale-[1.01]'
                                 } ${isOperating ? 'animate-pulse' : ''}`}
@@ -675,14 +736,14 @@ export default function SimplifiedDashboard() {
                                   onClick={() => handleTaskToggle(task.id)}
                                   disabled={isCompleting}
                                   className={`relative h-4 w-4 rounded border-2 transition-all duration-200 hover:scale-110 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 ${
-                                    task.completed
+                                    isDone
                                       ? 'bg-green-500 border-green-500'
                                       : 'border-gray-300 hover:border-blue-400'
                                   } ${isCompleting ? 'animate-spin' : ''}`}
                                 >
                                   {isCompleting ? (
                                     <div className="absolute inset-0 rounded border-2 border-blue-500 border-t-transparent animate-spin"></div>
-                                  ) : task.completed ? (
+                                  ) : isDone ? (
                                     <svg className="absolute inset-0 w-full h-full text-white" fill="currentColor" viewBox="0 0 20 20">
                                       <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                                     </svg>
@@ -690,7 +751,7 @@ export default function SimplifiedDashboard() {
                                 </button>
                                 <div className="flex-1">
                                   <h3 className={`font-medium transition-colors duration-200 ${
-                                    task.completed
+                                    isDone
                                       ? 'text-green-800 line-through'
                                       : 'text-gray-900 group-hover:text-blue-900'
                                   }`}>
@@ -698,66 +759,31 @@ export default function SimplifiedDashboard() {
                                   </h3>
                                   {task.description && (
                                     <p className={`text-sm mt-1 transition-colors duration-200 line-clamp-2 ${
-                                      task.completed
+                                      isDone
                                         ? 'text-green-700'
                                         : 'text-gray-600 group-hover:text-gray-700'
                                     }`}>
                                       {task.description}
                                     </p>
                                   )}
-                                  <div className="flex items-center mt-2">
-                                    <div className="text-xs text-gray-500 transition-colors duration-200 group-hover:text-gray-600">
+                                  <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-gray-500">
+                                    <span className="transition-colors duration-200 group-hover:text-gray-600">
                                       Alignment: {task.alignment_score || 0}%
-                                    </div>
+                                    </span>
+                                    {isDone && (
+                                      <span className="text-green-600">
+                                        Completed on{' '}
+                                        {(task.completed_at ? new Date(task.completed_at) : new Date(task.updated_at)).toLocaleDateString()}
+                                      </span>
+                                    )}
                                   </div>
                                 </div>
                               </div>
                             )
                           })}
-                      {showCompletedHistory && recentCompletedTasks.length > 0 && (
-                        <div className="mt-6 border-t border-gray-200 pt-4">
-                          <p className="text-sm font-medium text-gray-700 mb-3">Recent completed tasks</p>
-                          <div className="space-y-2">
-                            {recentCompletedTasks.map((task) => (
-                              <div key={`completed-${task.id}`} className="flex items-start justify-between rounded-lg border border-gray-200 bg-gray-50 p-3">
-                                <div className="flex-1 pr-4">
-                                  <p className="text-sm font-medium text-gray-800">{task.title}</p>
-                                  {task.description && (
-                                    <p className="text-xs text-gray-600 line-clamp-2">{task.description}</p>
-                                  )}
-                                </div>
-                                <div className="text-xs text-gray-500 text-right">
-                                  <p className="font-medium text-green-600">Completed</p>
-                                  <p>
-                                    {task.completed_at
-                                      ? new Date(task.completed_at).toLocaleDateString()
-                                      : new Date(task.updated_at).toLocaleDateString()}
-                                  </p>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
                         </div>
-                      )}
-                      </div>
-                    ) : (
-                      <div className="text-center py-12 transition-all duration-300">
-                        <div className="text-gray-400 mb-4 transition-transform duration-300 hover:scale-110">
-                          <Plus className="h-12 w-12 mx-auto" />
-                        </div>
-                        <h3 className="font-medium text-gray-900 mb-2">No tasks yet</h3>
-                        <p className="text-sm text-gray-600 mb-4">
-                          Add your first task to get started with AI-powered mission alignment
-                        </p>
-                        <Button
-                          onClick={() => setOpenAdd(true)}
-                          className="bg-blue-600 hover:bg-blue-700 text-white transition-all duration-300 hover:shadow-lg hover:scale-105"
-                        >
-                          <Plus className="h-4 w-4 mr-2" />
-                          Add Task
-                        </Button>
-                      </div>
-                    )}
+                      )
+                    })()}
                   </div>
 
                   {/* Progress and Smart Suggestions */}
