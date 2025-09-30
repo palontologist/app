@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import Link from "next/link"
 import { Target, Plus, Lightbulb, TrendingUp, Zap } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -65,7 +66,7 @@ function PersonalizedSuggestions({ tasks, user, onCreateTask }: { tasks: TaskTyp
   const missionSnippet = React.useMemo(() => {
     if (!user?.mission) return null
     const trimmed = user.mission.trim()
-  return trimmed ? `"${trimmed.slice(0, 80)}${trimmed.length > 80 ? "..." : ""}"` : null
+    return trimmed ? `"${trimmed.slice(0, 80)}${trimmed.length > 80 ? "..." : ""}"` : null
   }, [user?.mission])
 
   const focusSnippet = React.useMemo(() => {
@@ -377,6 +378,33 @@ export default function SimplifiedDashboard() {
   const [taskCreated, setTaskCreated] = React.useState(false)
   const [completingTasks, setCompletingTasks] = React.useState<Set<number>>(new Set())
   const [taskOperations, setTaskOperations] = React.useState<Set<number>>(new Set())
+  const [showCompletedHistory, setShowCompletedHistory] = React.useState(false)
+
+  const completedTasks = React.useMemo(() => tasks.filter((task) => task.completed), [tasks])
+  const missionAlignmentScore = React.useMemo(() => {
+    if (tasks.length === 0) return 0
+    const totalScore = tasks.reduce((sum, task) => sum + (task.alignment_score || 0), 0)
+    const average = Math.round(totalScore / tasks.length)
+    return Math.max(0, Math.min(100, average))
+  }, [tasks])
+  const completionRate = React.useMemo(() => {
+    if (tasks.length === 0) return 0
+    return Math.round((completedTasks.length / tasks.length) * 100)
+  }, [tasks, completedTasks])
+  const highAlignmentCount = React.useMemo(
+    () => tasks.filter((task) => (task.alignment_score || 0) >= 70).length,
+    [tasks]
+  )
+  const recentCompletedTasks = React.useMemo(() => {
+    return completedTasks
+      .slice()
+      .sort((a, b) => {
+        const aTime = a.completed_at ? new Date(a.completed_at).getTime() : new Date(a.updated_at).getTime()
+        const bTime = b.completed_at ? new Date(b.completed_at).getTime() : new Date(b.updated_at).getTime()
+        return bTime - aTime
+      })
+      .slice(0, 6)
+  }, [completedTasks])
 
   React.useEffect(() => {
     loadData()
@@ -481,12 +509,6 @@ export default function SimplifiedDashboard() {
     }
   }, [tasks])
 
-  const calculateAlignmentScore = () => {
-    if (tasks.length === 0) return 304 // Default for demo, matching the image
-    const totalScore = tasks.reduce((sum, task) => sum + (task.alignment_score || 0), 0)
-    return Math.round(totalScore / tasks.length)
-  }
-
   const orderedTasks = React.useMemo(() => {
     return [...tasks].sort((a, b) => Number(a.completed) - Number(b.completed))
   }, [tasks])
@@ -552,38 +574,55 @@ export default function SimplifiedDashboard() {
       {/* Main Content */}
       <main className="mx-auto max-w-7xl p-6">
         {/* North Star */}
-        <Card className="mb-6 transition-all duration-300 hover:shadow-md">
-          <CardHeader className="pb-3">
-            <CardTitle className="flex items-center gap-2 text-lg font-medium text-gray-900">
-              <Target className="h-5 w-5 text-blue-600" />
-              North Star
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-gray-700 transition-all duration-300">
-              {user?.mission || "Define your mission to get started"}
-            </p>
-          </CardContent>
-        </Card>
-
-        {/* Mission Alignment Score */}
         <Card className="mb-6 transition-all duration-300 hover:shadow-lg">
           <CardHeader className="pb-3">
-            <CardTitle className="text-lg font-medium text-gray-900">
-              Mission Alignment Score
-            </CardTitle>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <CardTitle className="flex items-center gap-2 text-lg font-medium text-gray-900">
+                <Target className="h-5 w-5 text-blue-600" />
+                North Star
+              </CardTitle>
+              <div className="flex flex-wrap gap-2">
+                <Button variant="outline" className="border-blue-200 text-blue-700 hover:bg-blue-50" asChild>
+                  <Link href="/profile">Manage Profile</Link>
+                </Button>
+                <Button className="bg-blue-600 hover:bg-blue-700 text-white" asChild>
+                  <Link href="/goals">View Goals</Link>
+                </Button>
+              </div>
+            </div>
           </CardHeader>
-          <CardContent className="flex items-center justify-center py-6">
-            <CircularProgress
-              value={calculateAlignmentScore()}
-              size={160}
-              strokeWidth={12}
-              indicatorColor="#3B82F6"
-              trackColor="#E5E7EB"
-              showInsights={false}
-              tasks={tasks}
-              user={user}
-            />
+          <CardContent>
+            <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+              <div className="flex-1 space-y-3">
+                <p className="text-gray-700 leading-relaxed">
+                  {user?.mission || "Define your mission to get started"}
+                </p>
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4 text-sm text-gray-600">
+                  <span className="font-medium text-gray-900">Alignment insights</span>
+                  <span>
+                    {tasks.length > 0
+                      ? `${completedTasks.length} of ${tasks.length} tasks completed with ${highAlignmentCount} high-alignment win${highAlignmentCount === 1 ? "" : "s"}.`
+                      : "Add your first task to start measuring mission progress."}
+                  </span>
+                </div>
+              </div>
+              <div className="flex items-center justify-center gap-6">
+                <div className="text-center">
+                  <p className="text-xs uppercase tracking-wide text-gray-500">Mission Alignment</p>
+                  <p className="text-3xl font-semibold text-blue-600">{missionAlignmentScore}%</p>
+                </div>
+                <CircularProgress
+                  value={missionAlignmentScore}
+                  size={160}
+                  strokeWidth={10}
+                  indicatorColor="#3B82F6"
+                  trackColor="#E5E7EB"
+                  showInsights={false}
+                  tasks={tasks}
+                  user={user}
+                />
+              </div>
+            </div>
           </CardContent>
         </Card>
 
@@ -598,11 +637,14 @@ export default function SimplifiedDashboard() {
                   Tasks
                 </CardTitle>
                 <div className="flex items-center gap-2">
-                  <div className="text-gray-400">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M6 9l6 6 6-6"/>
-                    </svg>
-                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="h-8 border-gray-200 text-gray-600 hover:bg-gray-100"
+                    onClick={() => setShowCompletedHistory((prev) => !prev)}
+                  >
+                    {showCompletedHistory ? "Hide Completed" : "Show Completed"}
+                  </Button>
                 </div>
               </CardHeader>
               <CardContent>
@@ -672,6 +714,31 @@ export default function SimplifiedDashboard() {
                               </div>
                             )
                           })}
+                      {showCompletedHistory && recentCompletedTasks.length > 0 && (
+                        <div className="mt-6 border-t border-gray-200 pt-4">
+                          <p className="text-sm font-medium text-gray-700 mb-3">Recent completed tasks</p>
+                          <div className="space-y-2">
+                            {recentCompletedTasks.map((task) => (
+                              <div key={`completed-${task.id}`} className="flex items-start justify-between rounded-lg border border-gray-200 bg-gray-50 p-3">
+                                <div className="flex-1 pr-4">
+                                  <p className="text-sm font-medium text-gray-800">{task.title}</p>
+                                  {task.description && (
+                                    <p className="text-xs text-gray-600 line-clamp-2">{task.description}</p>
+                                  )}
+                                </div>
+                                <div className="text-xs text-gray-500 text-right">
+                                  <p className="font-medium text-green-600">Completed</p>
+                                  <p>
+                                    {task.completed_at
+                                      ? new Date(task.completed_at).toLocaleDateString()
+                                      : new Date(task.updated_at).toLocaleDateString()}
+                                  </p>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                       </div>
                     ) : (
                       <div className="text-center py-12 transition-all duration-300">
@@ -698,18 +765,37 @@ export default function SimplifiedDashboard() {
                     {/* Progress Section */}
                     <div className="animate-in slide-in-from-bottom-2 duration-500 delay-300">
                       <h3 className="font-medium text-gray-900 mb-3">Progress</h3>
-                      <div className="space-y-3">
-                        <div className="bg-gray-200 h-2 rounded-full overflow-hidden">
-                          <div
-                            className="bg-blue-600 h-full rounded-full transition-all duration-1000 ease-out"
-                            style={{
-                              width: `${Math.min(100, (tasks.filter(t => t.completed).length / Math.max(tasks.length, 1)) * 100)}%`,
-                              animation: 'progressFill 1.2s ease-out forwards'
-                            }}
-                          ></div>
+                      <div className="space-y-4">
+                        <div className="rounded-lg border border-gray-200 p-4 bg-white shadow-sm">
+                          <div className="flex items-center justify-between text-sm">
+                            <span className="font-medium text-gray-800">Completion rate</span>
+                            <span className="text-gray-500">{completedTasks.length} / {tasks.length}</span>
+                          </div>
+                          <div className="mt-3 h-2 rounded-full bg-gray-200 overflow-hidden">
+                            <div
+                              className="h-full rounded-full bg-blue-600 transition-all duration-700 ease-out"
+                              style={{ width: `${Math.min(100, completionRate)}%` }}
+                            ></div>
+                          </div>
+                          <p className="mt-2 text-sm text-gray-600">{completionRate}% of this week's work is done.</p>
                         </div>
-                        <div className="text-xs text-gray-600 animate-in fade-in duration-300 delay-500">
-                          {tasks.filter(t => t.completed).length} of {tasks.length} tasks completed
+
+                        <div className="rounded-lg border border-gray-200 p-4 bg-white shadow-sm">
+                          <div className="flex items-center justify-between text-sm">
+                            <span className="font-medium text-gray-800">Mission achievement</span>
+                            <span className="text-gray-500">{missionAlignmentScore}% aligned</span>
+                          </div>
+                          <div className="mt-3 h-2 rounded-full bg-gray-200 overflow-hidden">
+                            <div
+                              className="h-full rounded-full bg-green-500 transition-all duration-700 ease-out"
+                              style={{ width: `${missionAlignmentScore}%` }}
+                            ></div>
+                          </div>
+                          <p className="mt-2 text-sm text-gray-600">
+                            {highAlignmentCount > 0
+                              ? `${highAlignmentCount} task${highAlignmentCount === 1 ? "" : "s"} are fueling the mission.`
+                              : "Add a mission-critical task to build momentum."}
+                          </p>
                         </div>
                       </div>
                     </div>
@@ -748,7 +834,7 @@ export default function SimplifiedDashboard() {
                 <PersonalizedAnalysis
                   tasks={tasks}
                   user={user}
-                  alignmentScore={calculateAlignmentScore()}
+                  alignmentScore={missionAlignmentScore}
                 />
               </CardContent>
             </Card>
