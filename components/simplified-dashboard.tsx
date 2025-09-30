@@ -719,6 +719,7 @@ export default function SimplifiedDashboard() {
                             const isCompleting = completingTasks.has(task.id)
                             const isOperating = taskOperations.has(task.id)
                             const isDone = !!task.completed
+                            const completedTimestamp = task.completed_at ?? task.updated_at ?? null
 
                             return (
                               <div
@@ -773,7 +774,7 @@ export default function SimplifiedDashboard() {
                                     {isDone && (
                                       <span className="text-green-600">
                                         Completed on{' '}
-                                        {(task.completed_at ? new Date(task.completed_at) : new Date(task.updated_at)).toLocaleDateString()}
+                                        {completedTimestamp ? new Date(completedTimestamp).toLocaleDateString() : "recently"}
                                       </span>
                                     )}
                                   </div>
