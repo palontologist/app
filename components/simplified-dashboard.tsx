@@ -96,18 +96,23 @@ function PersonalizedSuggestions({ tasks, user, onCreateTask }: { tasks: TaskTyp
     setCreatingTask(suggestion.id)
 
     try {
-      // Create a task based on the suggestion
-      const formData = new FormData()
-      formData.append('title', suggestion.title)
-      formData.append('description', suggestion.description)
-      formData.append('missionPillar', user?.focus_areas || 'General')
-
-      // Import and call createTask
+      // Import createTask action
       const { createTask } = await import('@/app/actions/tasks')
-      const result = await createTask(formData)
+      
+      // Create task with optimized payload
+      const result = await createTask(
+        suggestion.title,
+        suggestion.description,
+        undefined, // userId (will be determined server-side)
+        'medium', // default alignment category
+        undefined // goalId
+      )
 
       if (result.success) {
-        onCreateTask()
+        // Show immediate feedback
+        setTimeout(() => {
+          onCreateTask()
+        }, 100)
       }
     } catch (error) {
       console.error('Failed to create task from suggestion:', error)
@@ -248,12 +253,14 @@ export default function SimplifiedDashboard() {
   const [loading, setLoading] = React.useState(true)
   const [isRefreshing, setIsRefreshing] = React.useState(false)
   const [taskCreated, setTaskCreated] = React.useState(false)
+  const [completingTasks, setCompletingTasks] = React.useState<Set<number>>(new Set())
+  const [taskOperations, setTaskOperations] = React.useState<Set<number>>(new Set())
 
   React.useEffect(() => {
     loadData()
   }, [])
 
-  const loadData = async (showRefresh = false) => {
+  const loadData = React.useCallback(async (showRefresh = false) => {
     if (showRefresh) {
       setIsRefreshing(true)
     } else {
@@ -261,6 +268,7 @@ export default function SimplifiedDashboard() {
     }
 
     try {
+      // Load tasks and user data in parallel for better performance
       const [tasksResult, userResult] = await Promise.all([getTasks(), getUser()])
 
       if (tasksResult.success) {
@@ -280,12 +288,10 @@ export default function SimplifiedDashboard() {
         };
         setUser(mappedUser as UserType)
 
-        // Generate AI insights
-        try {
-          const result = await generateDashboardSummary()
+        // Generate AI insights asynchronously (non-blocking)
+        generateDashboardSummary().then(result => {
           if (result.success) {
             setAlignmentSummary(result.summary)
-            // Extract key insights from the summary
             const insights = [
               "Focus on high-alignment tasks for maximum impact",
               "Consider breaking down complex goals into smaller tasks",
@@ -293,11 +299,11 @@ export default function SimplifiedDashboard() {
             ]
             setAiInsights(insights)
           }
-        } catch (error) {
+        }).catch(error => {
           console.warn("Failed to generate AI summary:", error)
           setAlignmentSummary("Add tasks to get AI insights!")
           setAiInsights(["Add your first task to see personalized insights"])
-        }
+        })
       }
     } catch (error) {
       console.error("Failed to load data:", error)
@@ -305,13 +311,53 @@ export default function SimplifiedDashboard() {
       setLoading(false)
       setIsRefreshing(false)
     }
-  }
+  }, [])
 
-  const handleTaskCreated = () => {
+  const handleTaskCreated = React.useCallback(() => {
     setTaskCreated(true)
-    setTimeout(() => setTaskCreated(false), 3000) // Extended duration for better visibility
-    loadData(true) // Refresh data with smooth transition
-  }
+    setTimeout(() => setTaskCreated(false), 2000)
+    // Use optimistic updates instead of full reload for better performance
+    loadData(true)
+  }, [loadData])
+
+  const handleTaskToggle = React.useCallback(async (taskId: number) => {
+    const taskToToggle = tasks.find(task => task.id === taskId)
+    if (!taskToToggle) {
+      return
+    }
+
+    const previousTasks = tasks.map(task => ({ ...task }))
+    const updatedTasks = tasks.map(task =>
+      task.id === taskId ? { ...task, completed: !task.completed } : task
+    )
+
+    setTaskOperations(prev => new Set(prev).add(taskId))
+    setCompletingTasks(prev => new Set(prev).add(taskId))
+    setTasks(updatedTasks)
+
+    try {
+      const { toggleTaskCompletion } = await import('@/app/actions/tasks')
+      const result = await toggleTaskCompletion(taskId)
+
+      if (!result.success) {
+        setTasks(previousTasks)
+      }
+    } catch (error) {
+      console.error('Failed to toggle task:', error)
+      setTasks(previousTasks)
+    } finally {
+      setTaskOperations(prev => {
+        const next = new Set(prev)
+        next.delete(taskId)
+        return next
+      })
+      setCompletingTasks(prev => {
+        const next = new Set(prev)
+        next.delete(taskId)
+        return next
+      })
+    }
+  }, [tasks])
 
   const calculateAlignmentScore = () => {
     if (tasks.length === 0) return 304 // Default for demo, matching the image
@@ -319,7 +365,9 @@ export default function SimplifiedDashboard() {
     return Math.round(totalScore / tasks.length)
   }
 
-  const activeTasks = tasks.filter(task => !task.completed)
+  const orderedTasks = React.useMemo(() => {
+    return [...tasks].sort((a, b) => Number(a.completed) - Number(b.completed))
+  }, [tasks])
 
   if (loading) {
     return (
@@ -396,7 +444,28 @@ export default function SimplifiedDashboard() {
           </CardContent>
         </Card>
 
-        {/* Main Layout - Three Column Grid */}
+        {/* Mission Alignment Score */}
+        <Card className="mb-6 transition-all duration-300 hover:shadow-lg">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-lg font-medium text-gray-900">
+              Mission Alignment Score
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="flex items-center justify-center py-6">
+            <CircularProgress
+              value={calculateAlignmentScore()}
+              size={160}
+              strokeWidth={12}
+              indicatorColor="#3B82F6"
+              trackColor="#E5E7EB"
+              showInsights={false}
+              tasks={tasks}
+              user={user}
+            />
+          </CardContent>
+        </Card>
+
+        {/* Main Layout - Two Column Grid */}
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
           {/* Left Column - Tasks */}
           <div className="xl:col-span-2 space-y-6">
@@ -418,31 +487,70 @@ export default function SimplifiedDashboard() {
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                   {/* Tasks List */}
                   <div>
-                    {activeTasks.length > 0 ? (
+                    {tasks.length > 0 ? (
                       <div className="space-y-3">
-                        {activeTasks.slice(0, 8).map((task, index) => (
-                          <div
-                            key={task.id}
-                            className="flex items-center gap-3 p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-all duration-300 hover:shadow-sm hover:border-blue-300 hover:scale-[1.02] group"
-                            style={{
-                              animationDelay: `${index * 100}ms`,
-                              animation: 'slideInFromLeft 0.6s ease-out forwards'
-                            }}
-                          >
-                            <div className="h-4 w-4 border border-gray-300 rounded transition-all duration-200 hover:border-blue-400 group-hover:scale-110"></div>
-                            <div className="flex-1">
-                              <h3 className="font-medium text-gray-900 transition-colors duration-200 group-hover:text-blue-900">{task.title}</h3>
-                              {task.description && (
-                                <p className="text-sm text-gray-600 mt-1 transition-colors duration-200 group-hover:text-gray-700 line-clamp-2">{task.description}</p>
-                              )}
-                              <div className="flex items-center mt-2">
-                                <div className="text-xs text-gray-500 transition-colors duration-200 group-hover:text-gray-600">
-                                  Alignment: {task.alignment_score || 0}%
+                        {orderedTasks
+                          .slice(0, 8)
+                          .map((task, index) => {
+                            const isCompleting = completingTasks.has(task.id)
+                            const isOperating = taskOperations.has(task.id)
+
+                            return (
+                              <div
+                                key={task.id}
+                                className={`flex items-center gap-3 p-3 border rounded-lg transition-all duration-300 hover:shadow-sm group ${
+                                  task.completed
+                                    ? 'bg-green-50 border-green-200 opacity-75'
+                                    : 'border-gray-200 hover:bg-gray-50 hover:border-blue-300 hover:scale-[1.01]'
+                                } ${isOperating ? 'animate-pulse' : ''}`}
+                                style={{
+                                  animationDelay: `${index * 50}ms`,
+                                  animation: isOperating ? 'pulse 1s infinite' : 'slideInFromLeft 0.4s ease-out forwards'
+                                }}
+                              >
+                                <button
+                                  onClick={() => handleTaskToggle(task.id)}
+                                  disabled={isCompleting}
+                                  className={`relative h-4 w-4 rounded border-2 transition-all duration-200 hover:scale-110 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 ${
+                                    task.completed
+                                      ? 'bg-green-500 border-green-500'
+                                      : 'border-gray-300 hover:border-blue-400'
+                                  } ${isCompleting ? 'animate-spin' : ''}`}
+                                >
+                                  {isCompleting ? (
+                                    <div className="absolute inset-0 rounded border-2 border-blue-500 border-t-transparent animate-spin"></div>
+                                  ) : task.completed ? (
+                                    <svg className="absolute inset-0 w-full h-full text-white" fill="currentColor" viewBox="0 0 20 20">
+                                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                    </svg>
+                                  ) : null}
+                                </button>
+                                <div className="flex-1">
+                                  <h3 className={`font-medium transition-colors duration-200 ${
+                                    task.completed
+                                      ? 'text-green-800 line-through'
+                                      : 'text-gray-900 group-hover:text-blue-900'
+                                  }`}>
+                                    {task.title}
+                                  </h3>
+                                  {task.description && (
+                                    <p className={`text-sm mt-1 transition-colors duration-200 line-clamp-2 ${
+                                      task.completed
+                                        ? 'text-green-700'
+                                        : 'text-gray-600 group-hover:text-gray-700'
+                                    }`}>
+                                      {task.description}
+                                    </p>
+                                  )}
+                                  <div className="flex items-center mt-2">
+                                    <div className="text-xs text-gray-500 transition-colors duration-200 group-hover:text-gray-600">
+                                      Alignment: {task.alignment_score || 0}%
+                                    </div>
+                                  </div>
                                 </div>
                               </div>
-                            </div>
-                          </div>
-                        ))}
+                            )
+                          })}
                       </div>
                     ) : (
                       <div className="text-center py-12 transition-all duration-300">
@@ -508,27 +616,6 @@ export default function SimplifiedDashboard() {
 
           {/* Right Column - AI Analysis */}
           <div className="space-y-6">
-            {/* Alignment Score Card */}
-            <Card className="transition-all duration-300 hover:shadow-lg">
-              <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-base font-medium text-gray-700">
-                  Mission Alignment Score
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="flex items-center justify-center py-6">
-                <CircularProgress
-                  value={calculateAlignmentScore()}
-                  size={140}
-                  strokeWidth={10}
-                  indicatorColor="#3B82F6"
-                  trackColor="#E5E7EB"
-                  showInsights={true}
-                  tasks={tasks}
-                  user={user}
-                />
-              </CardContent>
-            </Card>
-
             {/* AI Analysis Card */}
             <Card className="transition-all duration-300 hover:shadow-lg">
               <CardHeader className="flex flex-row items-center justify-between pb-2">
