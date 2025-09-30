@@ -1,10 +1,13 @@
 "use server"
 
 import { auth } from "@clerk/nextjs/server"
-import { db, tasks, goals, events, dashboardInsights, alignmentHistory } from "@/lib/db"
+import { db, tasks, goals, events, dashboardInsights, alignmentHistory, userProfiles } from "@/lib/db"
 import { eq, desc, and, sql } from "drizzle-orm"
 import { getUser } from "@/app/actions/user"
 import { generatePersonalizedInsights } from "@/lib/ai"
+import type { Task as TaskType } from "@/lib/types"
+
+let alignmentHistoryAvailable = true
 // Backward-compatible export for impact pages expecting this function
 export async function getRealisticMetrics() {
   // Provide a minimal structure compatible with callers expecting { success, metrics }
@@ -118,6 +121,129 @@ export async function getAnalyticsSnapshot() {
   } catch (error) {
     console.error('Failed to build analytics snapshot:', error)
     return { success: false, error: 'Failed to load analytics' }
+  }
+}
+
+type SmartSuggestion = {
+  id: string
+  title: string
+  description: string
+  action: string
+  color: "blue" | "green" | "purple" | "indigo" | "orange"
+  icon: "target" | "lightbulb" | "trendingUp" | "zap"
+}
+
+export async function generateSmartSuggestions() {
+  try {
+    const { userId } = await auth()
+    if (!userId) {
+      return { success: false, suggestions: [], error: "Unauthenticated" }
+    }
+
+    const [taskRows, profileRows] = await Promise.all([
+      db.select().from(tasks).where(eq(tasks.userId, userId)).orderBy(desc(tasks.createdAt)),
+      db.select().from(userProfiles).where(eq(userProfiles.userId, userId)).limit(1),
+    ])
+
+    const profile = profileRows[0]
+    const mission = profile?.mission ? profile.mission.trim() : ""
+
+  const missionSnippet = mission ? `"${mission.slice(0, 80)}${mission.length > 80 ? "..." : ""}"` : null
+
+    const mappedTasks: TaskType[] = taskRows.map((row): TaskType => ({
+      id: Number(row.id),
+      user_id: 0,
+      goal_id: row.goalId ?? null,
+      title: row.title,
+      description: row.description,
+      alignment_score: row.alignmentScore ?? 0,
+      alignment_category: row.alignmentCategory,
+      ai_analysis: row.aiAnalysis,
+      mission_pillar: null,
+      impact_statement: null,
+      ai_suggestions: null,
+      weekly_reflection_notes: null,
+      completed: row.completed ?? false,
+      completed_at: row.completedAt ? new Date(row.completedAt) : null,
+      created_at: new Date(row.createdAt),
+      updated_at: new Date(row.updatedAt),
+    }))
+
+    const insights = await generatePersonalizedInsights(mappedTasks, mission)
+    const insightsAny = insights as any
+
+    const suggestions: SmartSuggestion[] = []
+
+    if (insights.focus_area) {
+      suggestions.push({
+        id: "focus-area",
+        title: `Double down on ${insights.focus_area.toLowerCase()}`,
+        description: missionSnippet
+          ? `Invest your next block of deep work into ${insights.focus_area.toLowerCase()} so ${missionSnippet} stays on track.`
+          : `Invest your next block of deep work into ${insights.focus_area.toLowerCase()} to stay mission-aligned.`,
+        action: "Plan sprint",
+        color: "indigo",
+        icon: "target",
+      })
+    }
+
+    const shortTerm = Array.isArray(insightsAny?.short_term)
+      ? insightsAny.short_term
+      : insightsAny?.focus_by_horizon?.short_term
+    if (shortTerm && shortTerm.length > 0) {
+      suggestions.push({
+        id: "short-term",
+        title: `Do next: ${shortTerm[0]}`,
+  description: `Block 45 minutes today to complete "${shortTerm[0]}" and unlock momentum toward your mission.`,
+        action: "Start now",
+        color: "blue",
+        icon: "zap",
+      })
+    }
+
+    const longTerm = Array.isArray(insightsAny?.long_term)
+      ? insightsAny.long_term
+      : insightsAny?.focus_by_horizon?.long_term
+    if (longTerm && longTerm.length > 0) {
+      suggestions.push({
+        id: "long-term",
+        title: `Protect time for ${longTerm[0]}`,
+  description: `Schedule a deeper work session this week to push "${longTerm[0]}" forward before it slips.`,
+        action: "Schedule",
+        color: "purple",
+        icon: "lightbulb",
+      })
+    }
+
+    const recommendation = Array.isArray(insights.recommendations) ? insights.recommendations[0] : null
+    if (recommendation) {
+      suggestions.push({
+        id: "recommendation",
+  title: "Act on your coach's advice",
+        description: recommendation,
+        action: "Apply insight",
+        color: "green",
+        icon: "trendingUp",
+      })
+    }
+
+    if (suggestions.length === 0) {
+      suggestions.push({
+        id: "default",
+        title: missionSnippet ? "Define your next mission-aligned move" : "Add your first mission-aligned task",
+        description: missionSnippet
+          ? `Clarify the one outcome that best advances ${missionSnippet} and capture it as a task.`
+          : "Capture the first task that truly matches the mission you're building toward.",
+        action: "Create task",
+        color: "orange",
+        icon: "lightbulb",
+      })
+    }
+
+    return { success: true, suggestions: suggestions.slice(0, 3) }
+  } catch (error) {
+    console.error('Failed to generate smart suggestions:', error)
+    return { success: false, suggestions: [], error: 'Failed to generate suggestions' }
   }
 }
 
@@ -344,6 +470,9 @@ export async function updateManualMetric(metricId: number, newValue: number) {
 
 // Historical alignment data functions (from origin/main)
 export async function saveHistoricalAlignmentData() {
+  if (!alignmentHistoryAvailable) {
+    return { success: false, error: "Alignment history not available" }
+  }
   try {
     const { userId } = await auth()
     if (!userId) return { success: false, error: 'Unauthenticated' }
@@ -400,6 +529,14 @@ export async function saveHistoricalAlignmentData() {
 
     return { success: true }
   } catch (error) {
+    const message = (error as Error).message || ''
+    if (message.includes('no such table: alignment_history')) {
+      if (alignmentHistoryAvailable) {
+        alignmentHistoryAvailable = false
+        console.warn('Skipping alignment history persistence: table not found. Run migrations to enable this feature.')
+      }
+      return { success: false, error: 'Alignment history table missing' }
+    }
     console.error('Failed to save historical alignment data:', error)
     return { success: false, error: 'Failed to save data' }
   }

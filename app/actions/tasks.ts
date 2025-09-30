@@ -43,8 +43,6 @@ export async function createTask(formDataOrTitle: FormData | string, description
     let description: string | null = null;
     let alignmentCategory: string | null = null;
     let goalId: number | null = null;
-    let missionPillar: string | null = null;
-    let impactStatement: string | null = null;
     
     if (formDataOrTitle instanceof FormData) {
       // Extract values from FormData
@@ -61,12 +59,6 @@ export async function createTask(formDataOrTitle: FormData | string, description
         const parsed = parseInt(goalValue, 10)
         goalId = Number.isNaN(parsed) ? null : parsed
       }
-
-      const pillarValue = formDataOrTitle.get('missionPillar');
-      missionPillar = typeof pillarValue === 'string' ? pillarValue : null;
-
-      const impactValue = formDataOrTitle.get('impactStatement');
-      impactStatement = typeof impactValue === 'string' ? impactValue : null;
     } else {
       // Direct string parameters
       title = String(formDataOrTitle || '');
@@ -109,12 +101,6 @@ export async function createTask(formDataOrTitle: FormData | string, description
     // Perform AI alignment analysis
     let aiAnalysis = null
     let alignmentScore = 50
-    let aiSuggestions = null
-
-    // Use user-provided values as fallbacks, but let AI override with better suggestions
-    let finalMissionPillar = missionPillar
-    let finalImpactStatement = impactStatement
-
     try {
       const analysis = await analyzeTaskAlignment(
         String(title).trim(),
@@ -127,15 +113,6 @@ export async function createTask(formDataOrTitle: FormData | string, description
       aiAnalysis = analysis.analysis
       alignmentScore = analysis.alignment_score || 50
       alignmentCategory = analysis.alignment_category || "medium"
-      aiSuggestions = analysis.suggestions
-
-      // Only use AI suggestions if user didn't provide values
-      if (!finalMissionPillar && analysis.mission_pillar) {
-        finalMissionPillar = analysis.mission_pillar
-      }
-      if (!finalImpactStatement && analysis.impact_statement) {
-        finalImpactStatement = analysis.impact_statement
-      }
     } catch (error) {
       console.error("AI analysis failed:", error)
       aiAnalysis = "Unable to analyze alignment at this time."
@@ -149,9 +126,6 @@ export async function createTask(formDataOrTitle: FormData | string, description
       alignmentScore: alignmentScore,
       alignmentCategory: alignmentCategory,
       aiAnalysis: aiAnalysis,
-      missionPillar: finalMissionPillar,
-      impactStatement: finalImpactStatement,
-      aiSuggestions: aiSuggestions,
       completed: false,
       updatedAt: new Date(),
     }).returning()

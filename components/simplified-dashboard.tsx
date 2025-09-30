@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { Target, Plus, Lightbulb, TrendingUp, TrendingDown, Zap } from "lucide-react"
+import { Target, Plus, Lightbulb, TrendingUp, Zap } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import CircularProgress from "@/components/circular-progress"
@@ -11,143 +11,265 @@ import { getUser } from "@/app/actions/user"
 import { generateDashboardSummary } from "@/app/actions/analytics"
 import type { Task as TaskType, User as UserType } from "@/lib/types"
 
+type SuggestionCard = {
+  id: string
+  title: string
+  description: string
+  action: string
+  color: "blue" | "green" | "purple" | "indigo" | "orange"
+  icon: "target" | "lightbulb" | "trendingUp" | "zap"
+}
+
+const suggestionPalettes: Record<SuggestionCard["color"], { card: string; icon: string; button: string }> = {
+  blue: {
+    card: "bg-blue-50 border-blue-200 hover:bg-blue-100",
+    icon: "text-blue-600",
+    button: "bg-blue-600 hover:bg-blue-700",
+  },
+  green: {
+    card: "bg-green-50 border-green-200 hover:bg-green-100",
+    icon: "text-green-600",
+    button: "bg-green-600 hover:bg-green-700",
+  },
+  purple: {
+    card: "bg-purple-50 border-purple-200 hover:bg-purple-100",
+    icon: "text-purple-600",
+    button: "bg-purple-600 hover:bg-purple-700",
+  },
+  indigo: {
+    card: "bg-indigo-50 border-indigo-200 hover:bg-indigo-100",
+    icon: "text-indigo-600",
+    button: "bg-indigo-600 hover:bg-indigo-700",
+  },
+  orange: {
+    card: "bg-orange-50 border-orange-200 hover:bg-orange-100",
+    icon: "text-orange-600",
+    button: "bg-orange-500 hover:bg-orange-600",
+  },
+}
+
+const suggestionIcons: Record<SuggestionCard["icon"], React.ComponentType<React.SVGProps<SVGSVGElement>>> = {
+  target: Target,
+  lightbulb: Lightbulb,
+  trendingUp: TrendingUp,
+  zap: Zap,
+}
+
 // Personalized Suggestions Component
 function PersonalizedSuggestions({ tasks, user, onCreateTask }: { tasks: TaskType[], user: UserType | null, onCreateTask: () => void }) {
+  const [suggestions, setSuggestions] = React.useState<SuggestionCard[]>([])
   const [creatingTask, setCreatingTask] = React.useState<string | null>(null)
+  const [loadingSuggestions, setLoadingSuggestions] = React.useState(false)
+  const [lastError, setLastError] = React.useState<string | null>(null)
 
-  const generatePersonalizedSuggestions = () => {
-    if (!tasks.length || !user) return []
+  const missionSnippet = React.useMemo(() => {
+    if (!user?.mission) return null
+    const trimmed = user.mission.trim()
+  return trimmed ? `"${trimmed.slice(0, 80)}${trimmed.length > 80 ? "..." : ""}"` : null
+  }, [user?.mission])
 
-    const completedTasks = tasks.filter(t => t.completed).length
+  const focusSnippet = React.useMemo(() => {
+    if (!user?.focusAreas) return null
+    const firstArea = user.focusAreas.split(",")[0]?.trim()
+    return firstArea || null
+  }, [user?.focusAreas])
+
+  const fallbackSuggestions = React.useMemo((): SuggestionCard[] => {
     const totalTasks = tasks.length
+    const completedTasks = tasks.filter((t) => t.completed).length
     const completionRate = totalTasks > 0 ? (completedTasks / totalTasks) * 100 : 0
+    const highAlignment = tasks.filter((t) => (t.alignment_score || 0) >= 70)
+    const lowAlignment = tasks.filter((t) => (t.alignment_score || 0) < 40)
 
-    const highAlignmentTasks = tasks.filter(t => (t.alignment_score || 0) >= 70).length
-    const mediumAlignmentTasks = tasks.filter(t => (t.alignment_score || 0) >= 40 && (t.alignment_score || 0) < 70).length
-    const lowAlignmentTasks = tasks.filter(t => (t.alignment_score || 0) < 40).length
+    const generated: SuggestionCard[] = []
 
-    const suggestions = []
-
-    // Mission-specific suggestions based on user's profile
-    if (user.mission?.toLowerCase().includes('founder') || user.mission?.toLowerCase().includes('startup')) {
-      if (lowAlignmentTasks > highAlignmentTasks) {
-        suggestions.push({
-          id: 'founder-product',
-          title: 'Build product-market fit validation',
-          description: 'Create a task to validate your product with real users and measure engagement metrics.',
-          icon: TrendingUp,
-          color: 'purple',
-          action: 'Start'
+    if (totalTasks === 0) {
+      generated.push({
+        id: "kickoff",
+        title: focusSnippet
+          ? `Capture a ${focusSnippet.toLowerCase()} milestone`
+          : "Create your first mission-aligned task",
+        description: missionSnippet
+          ? `Kick things off with a concrete action that pushes ${missionSnippet} forward.`
+          : "Kick things off with a concrete action that pushes your mission forward.",
+        action: "Start",
+        color: "purple",
+        icon: "target",
+      })
+    } else {
+      if (highAlignment.length === 0) {
+        generated.push({
+          id: "add-high-alignment",
+          title: "Add one mission-critical task",
+          description: missionSnippet
+            ? `You don't have any highly aligned tasks yet. Define one move that directly advances ${missionSnippet}.`
+            : "You don't have any highly aligned tasks yet. Define one move that directly advances your mission.",
+          action: "Create",
+          color: "indigo",
+          icon: "target",
         })
       }
 
-      if (tasks.filter(t => t.title && t.title.toLowerCase().includes('customer') || t.title && t.title.toLowerCase().includes('user')).length === 0) {
-        suggestions.push({
-          id: 'founder-customers',
-          title: 'Talk to 5 potential customers today',
-          description: 'Direct customer discovery to understand pain points and validate your solution approach.',
-          icon: Target,
-          color: 'blue',
-          action: 'Start'
+      if (lowAlignment.length > highAlignment.length) {
+        generated.push({
+          id: "reduce-distractions",
+          title: "Trim distraction tasks",
+          description: `Reframe or drop ${lowAlignment.length} low-alignment tasks so you can focus on what moves the needle.`,
+          action: "Review list",
+          color: "orange",
+          icon: "lightbulb",
+        })
+      }
+
+      if (completionRate < 50 && totalTasks > 3) {
+        generated.push({
+          id: "finish-high-impact",
+          title: "Complete two high-impact tasks today",
+          description: "Finish what's already on your plate to rebuild momentum before adding more work.",
+          action: "Focus",
+          color: "green",
+          icon: "trendingUp",
         })
       }
     }
 
-    // Task volume and completion suggestions
-    if (completionRate < 50 && totalTasks > 3) {
-      suggestions.push({
-        id: 'focus-completion',
-        title: 'Complete 2 high-impact tasks today',
-        description: 'Focus on finishing existing tasks rather than adding new ones to build momentum.',
-        icon: Zap,
-        color: 'green',
-        action: 'Focus'
+    if (generated.length === 0) {
+      generated.push({
+        id: "prioritize",
+        title: missionSnippet ? "Plot your next mission-aligned move" : "Review and prioritize tasks",
+        description: missionSnippet
+          ? `Take ten minutes to curate the work that best supports ${missionSnippet}.`
+          : "Take ten minutes to curate the work that best supports your mission.",
+        action: "Review",
+        color: "blue",
+        icon: "lightbulb",
       })
     }
 
-    // Alignment improvement suggestions
-    if (highAlignmentTasks === 0 && totalTasks > 0) {
-      suggestions.push({
-        id: 'mission-alignment',
-        title: 'Add mission-critical task',
-        description: `Create a task that directly advances: "${user.mission?.substring(0, 30)}${user.mission && user.mission.length > 30 ? '...' : ''}"`,
-        icon: Target,
-        color: 'indigo',
-        action: 'Create'
-      })
+    return generated.slice(0, 3)
+  }, [tasks, missionSnippet, focusSnippet])
+
+  const tasksSignature = React.useMemo(
+    () => tasks.map((task) => `${task.id}-${task.completed}-${task.alignment_score ?? 0}`).join("|"),
+    [tasks]
+  )
+
+  const fetchSuggestions = React.useCallback(
+    async (signal?: AbortSignal) => {
+      setLoadingSuggestions(true)
+      setLastError(null)
+      try {
+        const { generateSmartSuggestions } = await import("@/app/actions/analytics")
+        const result = await generateSmartSuggestions()
+        if (signal?.aborted) return
+
+        if (result.success && result.suggestions.length > 0) {
+          setSuggestions(result.suggestions)
+        } else {
+          setSuggestions(fallbackSuggestions)
+          if (result.error) {
+            setLastError(result.error)
+          }
+        }
+      } catch (error) {
+        if (signal?.aborted) return
+        console.error("Failed to load smart suggestions:", error)
+        setSuggestions(fallbackSuggestions)
+        setLastError("Smart suggestions are temporarily unavailable.")
+      } finally {
+        if (!signal?.aborted) {
+          setLoadingSuggestions(false)
+        }
+      }
+    },
+    [fallbackSuggestions]
+  )
+
+  React.useEffect(() => {
+    const controller = new AbortController()
+    fetchSuggestions(controller.signal)
+    return () => {
+      controller.abort()
+      setLoadingSuggestions(false)
     }
+  }, [fetchSuggestions, tasksSignature])
 
-    // Default suggestions if none generated
-    if (suggestions.length === 0) {
-      suggestions.push({
-        id: 'default-1',
-        title: 'Review and prioritize tasks',
-        description: 'Take 10 minutes to review your task list and ensure they align with your core mission.',
-        icon: Lightbulb,
-        color: 'blue',
-        action: 'Review'
-      })
-    }
-
-    return suggestions.slice(0, 3) // Limit to 3 suggestions
-  }
-
-  const handleSuggestionAction = async (suggestion: any) => {
+  const handleSuggestionAction = async (suggestion: SuggestionCard) => {
     setCreatingTask(suggestion.id)
 
     try {
-      // Import createTask action
-      const { createTask } = await import('@/app/actions/tasks')
-      
-      // Create task with optimized payload
+      const { createTask } = await import("@/app/actions/tasks")
       const result = await createTask(
         suggestion.title,
         suggestion.description,
-        undefined, // userId (will be determined server-side)
-        'medium', // default alignment category
-        undefined // goalId
+        undefined,
+        "medium",
+        undefined
       )
 
-      if (result.success) {
-        // Show immediate feedback
-        setTimeout(() => {
-          onCreateTask()
-        }, 100)
+      if (result?.success) {
+        onCreateTask()
+        await fetchSuggestions()
       }
     } catch (error) {
-      console.error('Failed to create task from suggestion:', error)
+      console.error("Failed to create task from suggestion:", error)
     } finally {
       setCreatingTask(null)
     }
   }
 
-  const suggestions = generatePersonalizedSuggestions()
+  const cardsToRender = suggestions.length > 0 ? suggestions : fallbackSuggestions
 
   return (
     <div>
-      <h3 className="font-medium text-gray-900 mb-3">Smart Suggestions</h3>
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="font-medium text-gray-900">Smart Suggestions</h3>
+        {loadingSuggestions && (
+          <span className="text-xs text-blue-600 animate-pulse">Refreshing...</span>
+        )}
+      </div>
       <div className="space-y-3">
-        {suggestions.map((suggestion) => (
-          <div
-            key={suggestion.id}
-            className={`p-4 bg-${suggestion.color}-50 border border-${suggestion.color}-200 rounded-lg hover:bg-${suggestion.color}-100 transition-all duration-300 hover:shadow-md group cursor-pointer`}
-          >
-            <div className="flex items-start gap-3">
-              <suggestion.icon className={`h-4 w-4 mt-0.5 flex-shrink-0 text-${suggestion.color}-600 group-hover:scale-110 transition-transform duration-200`} />
-              <div className="flex-1">
-                <p className="text-sm font-medium text-gray-800 mb-1">{suggestion.title}</p>
-                <p className="text-xs text-gray-700 mb-2">{suggestion.description}</p>
-                <button
-                  onClick={() => handleSuggestionAction(suggestion)}
-                  disabled={creatingTask === suggestion.id}
-                  className={`px-3 py-1 bg-${suggestion.color}-600 text-white text-xs rounded-full hover:bg-${suggestion.color}-700 transition-colors duration-200 hover:scale-105 disabled:opacity-50`}
-                >
-                  {creatingTask === suggestion.id ? 'Creating...' : suggestion.action}
-                </button>
+        {loadingSuggestions && cardsToRender.length === 0 && (
+          <div className="space-y-3">
+            {[0, 1, 2].map((idx) => (
+              <div key={idx} className="p-4 border border-gray-200 rounded-lg bg-gray-50 animate-pulse">
+                <div className="h-3 w-24 bg-gray-200 rounded mb-2"></div>
+                <div className="h-2 w-full bg-gray-200 rounded"></div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {cardsToRender.map((suggestion) => {
+          const palette = suggestionPalettes[suggestion.color]
+          const Icon = suggestionIcons[suggestion.icon] || Lightbulb
+
+          return (
+            <div
+              key={suggestion.id}
+              className={`p-4 border rounded-lg transition-all duration-300 hover:shadow-md group cursor-pointer ${palette.card}`}
+            >
+              <div className="flex items-start gap-3">
+                <Icon className={`h-4 w-4 mt-0.5 flex-shrink-0 transition-transform duration-200 group-hover:scale-110 ${palette.icon}`} />
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-gray-800 mb-1">{suggestion.title}</p>
+                  <p className="text-xs text-gray-700 mb-2">{suggestion.description}</p>
+                  <button
+                    onClick={() => handleSuggestionAction(suggestion)}
+                    disabled={creatingTask === suggestion.id}
+                    className={`px-3 py-1 text-white text-xs rounded-full transition-transform duration-200 hover:scale-105 disabled:opacity-50 ${palette.button}`}
+                  >
+                    {creatingTask === suggestion.id ? "Creating..." : suggestion.action}
+                  </button>
+                </div>
               </div>
             </div>
-          </div>
-        ))}
+          )
+        })}
+
+        {lastError && (
+          <p className="text-xs text-gray-500">{lastError}</p>
+        )}
       </div>
     </div>
   )
@@ -498,14 +620,13 @@ export default function SimplifiedDashboard() {
                             return (
                               <div
                                 key={task.id}
-                                className={`flex items-center gap-3 p-3 border rounded-lg transition-all duration-300 hover:shadow-sm group ${
+                                className={`flex items-center gap-3 p-3 border rounded-lg transition-all duration-300 hover:shadow-sm group animate-in slide-in-from-left-2 ${
                                   task.completed
                                     ? 'bg-green-50 border-green-200 opacity-75'
                                     : 'border-gray-200 hover:bg-gray-50 hover:border-blue-300 hover:scale-[1.01]'
                                 } ${isOperating ? 'animate-pulse' : ''}`}
                                 style={{
-                                  animationDelay: `${index * 50}ms`,
-                                  animation: isOperating ? 'pulse 1s infinite' : 'slideInFromLeft 0.4s ease-out forwards'
+                                  animationDelay: `${index * 50}ms`
                                 }}
                               >
                                 <button
