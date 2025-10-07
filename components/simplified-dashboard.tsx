@@ -562,7 +562,7 @@ export default function SimplifiedDashboard() {
       <header className="bg-white border-b border-gray-200 px-6 py-4 transition-all duration-300">
         <div className="mx-auto max-w-6xl flex items-center justify-between">
           <h1 className="text-xl font-semibold text-gray-900">
-            Greta Mission Alignment Founder Dashboard
+            Greta Founder Dashboard
           </h1>
           <div className="flex items-center gap-4">
             {isRefreshing && (
@@ -580,6 +580,18 @@ export default function SimplifiedDashboard() {
 
       {/* Main Content */}
       <main className="mx-auto max-w-7xl p-6">
+        {/* Quick Add Activity Button */}
+        <div className="mb-6 flex justify-end">
+          <Button
+            onClick={() => setOpenAdd(true)}
+            className="bg-blue-600 hover:bg-blue-700 text-white shadow-lg hover:shadow-xl transition-all duration-300"
+            size="lg"
+          >
+            <Plus className="h-5 w-5 mr-2" />
+            Add Activity
+          </Button>
+        </div>
+
         {/* North Star */}
         <Card className="mb-6 transition-all duration-300 hover:shadow-lg">
           <CardHeader className="pb-3">
@@ -789,40 +801,91 @@ export default function SimplifiedDashboard() {
 
                   {/* Progress and Smart Suggestions */}
                   <div className="space-y-6">
-                    {/* Progress Section */}
+                    {/* Weekly Progress Graph */}
                     <div className="animate-in slide-in-from-bottom-2 duration-500 delay-300">
-                      <h3 className="font-medium text-gray-900 mb-3">Progress</h3>
-                      <div className="space-y-4">
-                        <div className="rounded-lg border border-gray-200 p-4 bg-white shadow-sm">
-                          <div className="flex items-center justify-between text-sm">
-                            <span className="font-medium text-gray-800">Completion rate</span>
-                            <span className="text-gray-500">{completedTasks.length} / {tasks.length}</span>
-                          </div>
-                          <div className="mt-3 h-2 rounded-full bg-gray-200 overflow-hidden">
-                            <div
-                              className="h-full rounded-full bg-blue-600 transition-all duration-700 ease-out"
-                              style={{ width: `${Math.min(100, completionRate)}%` }}
-                            ></div>
-                          </div>
-                          <p className="mt-2 text-sm text-gray-600">{completionRate}% of this week's work is done.</p>
+                      <h3 className="font-medium text-gray-900 mb-3">Alignment Score</h3>
+                      <div className="rounded-lg border border-gray-200 p-4 bg-white shadow-sm">
+                        {/* Time Period Tabs */}
+                        <div className="flex gap-2 mb-4">
+                          <button className="px-3 py-1 text-xs font-medium bg-blue-600 text-white rounded-md">
+                            Week
+                          </button>
+                          <button className="px-3 py-1 text-xs font-medium text-gray-600 hover:bg-gray-100 rounded-md">
+                            Month
+                          </button>
+                          <button className="px-3 py-1 text-xs font-medium text-gray-600 hover:bg-gray-100 rounded-md">
+                            Quarter
+                          </button>
                         </div>
-
-                        <div className="rounded-lg border border-gray-200 p-4 bg-white shadow-sm">
-                          <div className="flex items-center justify-between text-sm">
-                            <span className="font-medium text-gray-800">Mission achievement</span>
-                            <span className="text-gray-500">{missionAlignmentScore}% aligned</span>
+                        
+                        {/* Graph Area */}
+                        <div className="relative h-48">
+                          {/* Y-axis labels */}
+                          <div className="absolute left-0 top-0 bottom-0 flex flex-col justify-between text-xs text-gray-400 pr-2">
+                            <span>100%</span>
+                            <span>90%</span>
+                            <span>80%</span>
+                            <span>70%</span>
+                            <span>60%</span>
+                            <span>50%</span>
                           </div>
-                          <div className="mt-3 h-2 rounded-full bg-gray-200 overflow-hidden">
-                            <div
-                              className="h-full rounded-full bg-green-500 transition-all duration-700 ease-out"
-                              style={{ width: `${missionAlignmentScore}%` }}
-                            ></div>
+                          
+                          {/* Graph container */}
+                          <div className="ml-8 h-full relative">
+                            {/* Grid lines */}
+                            <div className="absolute inset-0 flex flex-col justify-between">
+                              {[...Array(6)].map((_, i) => (
+                                <div key={i} className="border-t border-gray-100"></div>
+                              ))}
+                            </div>
+                            
+                            {/* Line graph */}
+                            <svg className="absolute inset-0 w-full h-full" preserveAspectRatio="none">
+                              <defs>
+                                <linearGradient id="graphGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                                  <stop offset="0%" stopColor="rgb(37, 99, 235)" stopOpacity="0.1" />
+                                  <stop offset="100%" stopColor="rgb(37, 99, 235)" stopOpacity="0" />
+                                </linearGradient>
+                              </defs>
+                              {/* Area fill */}
+                              <path
+                                d="M 0,80 L 14,75 L 28,70 L 42,65 L 57,68 L 71,62 L 85,58 L 100,55 L 100,100 L 0,100 Z"
+                                fill="url(#graphGradient)"
+                                vectorEffect="non-scaling-stroke"
+                              />
+                              {/* Line */}
+                              <path
+                                d="M 0,80 L 14,75 L 28,70 L 42,65 L 57,68 L 71,62 L 85,58 L 100,55"
+                                fill="none"
+                                stroke="rgb(37, 99, 235)"
+                                strokeWidth="2"
+                                vectorEffect="non-scaling-stroke"
+                              />
+                            </svg>
+                            
+                            {/* X-axis labels */}
+                            <div className="absolute -bottom-6 left-0 right-0 flex justify-between text-xs text-gray-400">
+                              <span>Mon</span>
+                              <span>Tue</span>
+                              <span>Wed</span>
+                              <span>Thu</span>
+                              <span>Fri</span>
+                              <span>Sat</span>
+                              <span>Sun</span>
+                            </div>
                           </div>
-                          <p className="mt-2 text-sm text-gray-600">
-                            {highAlignmentCount > 0
-                              ? `${highAlignmentCount} task${highAlignmentCount === 1 ? "" : "s"} are fueling the mission.`
-                              : "Add a mission-critical task to build momentum."}
-                          </p>
+                        </div>
+                        
+                        {/* Summary Stats */}
+                        <div className="mt-8 pt-4 border-t border-gray-200 grid grid-cols-2 gap-4">
+                          <div>
+                            <p className="text-xs text-gray-600">Completion Rate</p>
+                            <p className="text-lg font-semibold text-gray-900">{completionRate}%</p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-gray-600">High Alignment</p>
+                            <p className="text-lg font-semibold text-gray-900">{highAlignmentCount} tasks</p>
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -833,15 +896,6 @@ export default function SimplifiedDashboard() {
                       user={user}
                       onCreateTask={handleTaskCreated}
                     />
-
-                    {/* Add Task Button */}
-                    <Button
-                      onClick={() => setOpenAdd(true)}
-                      className="w-full bg-blue-600 hover:bg-blue-700 text-white"
-                    >
-                      <Plus className="h-4 w-4 mr-2" />
-                      Add Task
-                    </Button>
                   </div>
                 </div>
               </CardContent>
