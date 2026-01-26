@@ -53,7 +53,7 @@ export async function getAICalendarSuggestions() {
         currentValue: g.current_value || 0,
         targetValue: g.target_value,
       })),
-      activities: activities.map((a) => ({
+      activities: activities.map((a: any) => ({
         id: a.id,
         title: a.title,
         goalId: a.goalId,
@@ -73,7 +73,7 @@ export async function getAICalendarSuggestions() {
         eventTime: e.event_time,
       })),
       userMission: user.mission || "",
-      worldVision: user.worldVision || user.world_vision || "",
+      worldVision: user.worldVision || "",
     });
 
     return {

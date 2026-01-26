@@ -26,7 +26,7 @@ export async function syncGoogleCalendarOnce(accessToken: string) {
     }
 
     // Convert Google events to our format
-    const mappedEvents = googleEvents.map((googleEvent) =>
+    const mappedEvents = googleEvents.map((googleEvent: any) =>
       mapGoogleEventToDbEvent(googleEvent, userId)
     );
 
