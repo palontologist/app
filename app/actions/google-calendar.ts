@@ -1,8 +1,7 @@
 "use server";
 
 import { auth } from "@clerk/nextjs/server";
-import { db } from "@/db";
-import { events } from "@/db/schema";
+import { db, events } from "@/lib/db";
 import { fetchCalendarEvents, mapGoogleEventToDbEvent } from "@/lib/google-calendar";
 import { eq, and } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
@@ -49,7 +48,7 @@ export async function syncGoogleCalendarOnce(accessToken: string) {
         );
 
       // If time is specified, also check time match
-      const isDuplicate = existingEvents.some((existing) => {
+      const isDuplicate = existingEvents.some((existing: typeof events.$inferSelect) => {
         if (event.eventTime && existing.eventTime) {
           return existing.eventTime === event.eventTime;
         }

@@ -4,12 +4,11 @@ import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
 
 export function GoogleCalendarButton() {
   const [isLoading, setIsLoading] = useState(false);
+  const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const searchParams = useSearchParams();
-  const { toast } = useToast();
 
   useEffect(() => {
     // Check for success/error messages in URL params after redirect
@@ -19,14 +18,16 @@ export function GoogleCalendarButton() {
     const skipped = searchParams.get("skipped");
 
     if (success === "calendar_synced") {
-      toast({
-        title: "Calendar synced successfully!",
-        description: `Synced ${synced || 0} event(s). Skipped ${skipped || 0} duplicate(s).`,
-        variant: "default",
+      setMessage({
+        type: "success",
+        text: `Calendar synced! ${synced || 0} event(s) added. ${skipped || 0} duplicate(s) skipped.`,
       });
 
-      // Clean up URL params
-      window.history.replaceState({}, "", window.location.pathname);
+      // Clean up URL params after showing message
+      setTimeout(() => {
+        window.history.replaceState({}, "", window.location.pathname);
+        setMessage(null);
+      }, 5000);
     }
 
     if (error) {
@@ -52,16 +53,18 @@ export function GoogleCalendarButton() {
           errorMessage = decodeURIComponent(error);
       }
 
-      toast({
-        title: "Sync failed",
-        description: errorMessage,
-        variant: "destructive",
+      setMessage({
+        type: "error",
+        text: errorMessage,
       });
 
-      // Clean up URL params
-      window.history.replaceState({}, "", window.location.pathname);
+      // Clean up URL params after showing message
+      setTimeout(() => {
+        window.history.replaceState({}, "", window.location.pathname);
+        setMessage(null);
+      }, 5000);
     }
-  }, [searchParams, toast]);
+  }, [searchParams]);
 
   const handleSyncCalendar = () => {
     setIsLoading(true);
@@ -70,14 +73,26 @@ export function GoogleCalendarButton() {
   };
 
   return (
-    <Button
-      onClick={handleSyncCalendar}
-      disabled={isLoading}
-      variant="outline"
-      className="gap-2"
-    >
-      <Calendar className="h-4 w-4" />
-      {isLoading ? "Connecting..." : "Sync Google Calendar"}
-    </Button>
+    <div className="flex flex-col items-end gap-2">
+      <Button
+        onClick={handleSyncCalendar}
+        disabled={isLoading}
+        variant="outline"
+        size="sm"
+        className="gap-2"
+      >
+        <Calendar className="h-4 w-4" />
+        {isLoading ? "Connecting..." : "Sync Google Calendar"}
+      </Button>
+      {message && (
+        <p
+          className={`text-xs ${
+            message.type === "success" ? "text-green-600" : "text-red-600"
+          }`}
+        >
+          {message.text}
+        </p>
+      )}
+    </div>
   );
 }
