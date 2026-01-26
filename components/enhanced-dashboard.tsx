@@ -24,6 +24,7 @@ import type { Task as TaskType, Goal as GoalType, User as UserType } from "@/lib
 import { createEvent, getEvents } from "@/app/actions/events"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { GoogleCalendarButton } from "@/components/google-calendar-button"
+import { AICalendarSuggestions } from "@/components/ai-calendar-suggestions"
 
 interface ApiGoalType {
   id: number
@@ -571,7 +572,10 @@ export default function EnhancedDashboard() {
               <Calendar className="h-4 w-4 text-[#28A745]" />
               Upcoming Events
             </CardTitle>
-            <GoogleCalendarButton />
+            <div className="flex gap-2">
+              <AICalendarSuggestions />
+              <GoogleCalendarButton />
+            </div>
           </div>
         </CardHeader>
         <CardContent>

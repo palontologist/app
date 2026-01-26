@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
-import { exchangeCodeForTokens } from "@/lib/google-calendar";
+import { exchangeCodeForTokens, storeTokens } from "@/lib/google-calendar";
 import { syncGoogleCalendarOnce } from "@/app/actions/google-calendar";
+import { google } from "googleapis";
 
 export async function GET(request: NextRequest) {
   try {
@@ -45,12 +46,39 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Fetch and sync calendar events immediately (don't store token)
+    // Get Google user info to store with tokens
+    const oauth2Client = new google.auth.OAuth2(
+      process.env.GOOGLE_CLIENT_ID,
+      process.env.GOOGLE_CLIENT_SECRET,
+      process.env.GOOGLE_REDIRECT_URI
+    );
+    oauth2Client.setCredentials({ access_token: tokens.accessToken });
+    
+    const oauth2 = google.oauth2({ version: "v2", auth: oauth2Client });
+    const userInfo = await oauth2.userinfo.get();
+
+    // Store tokens persistently for future use
+    await storeTokens(
+      userId,
+      {
+        accessToken: tokens.accessToken,
+        refreshToken: tokens.refreshToken,
+        expiryDate: tokens.expiryDate,
+        scope: tokens.scope,
+        tokenType: tokens.tokenType,
+      },
+      {
+        googleUserId: userInfo.data.id!,
+        email: userInfo.data.email,
+      }
+    );
+
+    // Fetch and sync calendar events
     const result = await syncGoogleCalendarOnce(tokens.accessToken);
 
     // Redirect back to dashboard with success message
     return NextResponse.redirect(
-      `${appUrl}/dashboard?success=calendar_synced&synced=${result.syncedCount}&skipped=${result.skippedCount}`
+      `${appUrl}/dashboard?success=calendar_connected&synced=${result.syncedCount}&skipped=${result.skippedCount}`
     );
   } catch (error) {
     console.error("Error in /api/google/calendar/callback:", error);

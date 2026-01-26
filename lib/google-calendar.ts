@@ -1,6 +1,8 @@
 import { google } from "googleapis";
 import { OAuth2Client } from "google-auth-library";
 import type { calendar_v3 } from "googleapis";
+import { db, googleAccounts } from "@/lib/db";
+import { eq } from "drizzle-orm";
 
 // Initialize OAuth2 client with environment variables
 export function getOAuth2Client(): OAuth2Client {
@@ -15,6 +17,162 @@ export function getOAuth2Client(): OAuth2Client {
   }
 
   return new google.auth.OAuth2(clientId, clientSecret, redirectUri);
+}
+
+// Get stored Google account tokens for a user
+export async function getStoredTokens(userId: string) {
+  const account = await db
+    .select()
+    .from(googleAccounts)
+    .where(eq(googleAccounts.userId, userId))
+    .limit(1);
+
+  return account[0] || null;
+}
+
+// Store or update Google account tokens
+export async function storeTokens(
+  userId: string,
+  tokens: {
+    accessToken?: string | null;
+    refreshToken?: string | null;
+    expiryDate?: number | null;
+    scope?: string | null;
+    tokenType?: string | null;
+  },
+  googleUserInfo?: {
+    googleUserId: string;
+    email?: string | null;
+  }
+) {
+  const existingAccount = await getStoredTokens(userId);
+
+  if (existingAccount) {
+    // Update existing account
+    await db
+      .update(googleAccounts)
+      .set({
+        accessToken: tokens.accessToken || existingAccount.accessToken,
+        refreshToken: tokens.refreshToken || existingAccount.refreshToken,
+        expiryDate: tokens.expiryDate || existingAccount.expiryDate,
+        scope: tokens.scope || existingAccount.scope,
+        tokenType: tokens.tokenType || existingAccount.tokenType,
+        updatedAt: new Date(),
+      })
+      .where(eq(googleAccounts.userId, userId));
+  } else if (googleUserInfo) {
+    // Create new account
+    await db.insert(googleAccounts).values({
+      userId,
+      googleUserId: googleUserInfo.googleUserId,
+      email: googleUserInfo.email || null,
+      accessToken: tokens.accessToken || null,
+      refreshToken: tokens.refreshToken || null,
+      expiryDate: tokens.expiryDate || null,
+      scope: tokens.scope || null,
+      tokenType: tokens.tokenType || null,
+    });
+  } else {
+    throw new Error("Cannot create new Google account without user info");
+  }
+}
+
+// Refresh access token using refresh token
+export async function refreshAccessToken(userId: string): Promise<string> {
+  const account = await getStoredTokens(userId);
+  
+  if (!account || !account.refreshToken) {
+    throw new Error("No refresh token found for user");
+  }
+
+  const oauth2Client = getOAuth2Client();
+  oauth2Client.setCredentials({
+    refresh_token: account.refreshToken,
+  });
+
+  try {
+    const { credentials } = await oauth2Client.refreshAccessToken();
+    
+    // Update stored tokens
+    await storeTokens(userId, {
+      accessToken: credentials.access_token,
+      expiryDate: credentials.expiry_date,
+      tokenType: credentials.token_type,
+      scope: credentials.scope,
+    });
+
+    return credentials.access_token!;
+  } catch (error) {
+    console.error("Error refreshing access token:", error);
+    throw new Error("Failed to refresh access token");
+  }
+}
+
+// Get valid access token (refresh if needed)
+export async function getValidAccessToken(userId: string): Promise<string> {
+  const account = await getStoredTokens(userId);
+  
+  if (!account) {
+    throw new Error("No Google account connected");
+  }
+
+  // Check if token is expired or about to expire (within 5 minutes)
+  const now = Date.now();
+  const expiryBuffer = 5 * 60 * 1000; // 5 minutes
+  
+  if (account.expiryDate && account.expiryDate < now + expiryBuffer) {
+    // Token expired or expiring soon, refresh it
+    return await refreshAccessToken(userId);
+  }
+
+  if (!account.accessToken) {
+    // No access token, try to refresh
+    return await refreshAccessToken(userId);
+  }
+
+  return account.accessToken;
+}
+
+// Create event in Google Calendar
+export async function createGoogleCalendarEvent(
+  userId: string,
+  event: {
+    title: string;
+    description?: string;
+    startDateTime: Date;
+    endDateTime: Date;
+    location?: string;
+  }
+) {
+  const accessToken = await getValidAccessToken(userId);
+  const oauth2Client = getOAuth2Client();
+  oauth2Client.setCredentials({ access_token: accessToken });
+
+  const calendar = google.calendar({ version: "v3", auth: oauth2Client });
+
+  try {
+    const response = await calendar.events.insert({
+      calendarId: "primary",
+      requestBody: {
+        summary: event.title,
+        description: event.description,
+        location: event.location,
+        start: {
+          dateTime: event.startDateTime.toISOString(),
+          timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        },
+        end: {
+          dateTime: event.endDateTime.toISOString(),
+          timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        },
+      },
+    });
+
+    return response.data;
+  } catch (error) {
+    console.error("Error creating Google Calendar event:", error);
+    throw new Error("Failed to create event in Google Calendar");
+  }
 }
 
 // Generate authorization URL with calendar scopes
