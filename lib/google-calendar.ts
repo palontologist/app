@@ -142,6 +142,7 @@ export async function createGoogleCalendarEvent(
     startDateTime: Date;
     endDateTime: Date;
     location?: string;
+    timeZone?: string;
   }
 ) {
   const accessToken = await getValidAccessToken(userId);
@@ -149,6 +150,9 @@ export async function createGoogleCalendarEvent(
   oauth2Client.setCredentials({ access_token: accessToken });
 
   const calendar = google.calendar({ version: "v3", auth: oauth2Client });
+
+  // Use provided timezone or default to UTC
+  const timeZone = event.timeZone || "UTC";
 
   try {
     const response = await calendar.events.insert({
@@ -159,11 +163,11 @@ export async function createGoogleCalendarEvent(
         location: event.location,
         start: {
           dateTime: event.startDateTime.toISOString(),
-          timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+          timeZone,
         },
         end: {
           dateTime: event.endDateTime.toISOString(),
-          timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+          timeZone,
         },
       },
     });

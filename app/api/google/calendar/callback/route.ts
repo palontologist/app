@@ -78,7 +78,7 @@ export async function GET(request: NextRequest) {
 
     // Redirect back to dashboard with success message
     return NextResponse.redirect(
-      `${appUrl}/dashboard?success=calendar_connected&synced=${result.syncedCount}&skipped=${result.skippedCount}`
+      `${appUrl}/dashboard?success=calendar_synced&synced=${result.syncedCount}&skipped=${result.skippedCount}`
     );
   } catch (error) {
     console.error("Error in /api/google/calendar/callback:", error);

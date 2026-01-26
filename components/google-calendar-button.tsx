@@ -19,12 +19,10 @@ export function GoogleCalendarButton() {
 
     let timeoutId: NodeJS.Timeout | undefined;
 
-    if (success === "calendar_synced" || success === "calendar_connected") {
+    if (success === "calendar_synced") {
       setMessage({
         type: "success",
-        text: success === "calendar_connected" 
-          ? `Google Calendar connected! ${synced || 0} event(s) synced. You can now use AI suggestions.`
-          : `Calendar synced! ${synced || 0} event(s) added. ${skipped || 0} duplicate(s) skipped.`,
+        text: `Calendar synced! ${synced || 0} event(s) added. ${skipped || 0} duplicate(s) skipped.`,
       });
 
       // Clean up URL params after showing message

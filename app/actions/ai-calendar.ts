@@ -20,13 +20,17 @@ export async function getAICalendarSuggestions() {
   }
 
   try {
-    // Fetch user data
-    const [userResult, goalsResult, tasksResult, eventsResult] = await Promise.all([
+    // Fetch user data - use allSettled to handle partial failures gracefully
+    const results = await Promise.allSettled([
       getUser(),
       getGoals(),
       getTasks(),
       getEvents(),
     ]);
+
+    const [userResult, goalsResult, tasksResult, eventsResult] = results.map(r => 
+      r.status === "fulfilled" ? r.value : { success: false }
+    );
 
     if (!userResult.success || !userResult.user) {
       throw new Error("User not found");

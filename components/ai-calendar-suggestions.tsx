@@ -43,7 +43,7 @@ export function AICalendarSuggestions() {
         setSuggestions(result.suggestions);
         setStrategy(result.strategy);
         // Select all suggestions by default
-        setSelectedSuggestions(new Set(result.suggestions.map((_: any, i: number) => i)));
+        setSelectedSuggestions(new Set(result.suggestions.map((_suggestion: CalendarSuggestion, i: number) => i)));
       } else {
         setMessage({
           type: "error",
@@ -75,7 +75,7 @@ export function AICalendarSuggestions() {
     setMessage(null);
 
     try {
-      const selectedSuggestionsList = suggestions.filter((_: any, i: number) => 
+      const selectedSuggestionsList = suggestions.filter((_suggestion: CalendarSuggestion, i: number) => 
         selectedSuggestions.has(i)
       );
 
