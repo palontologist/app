@@ -47,13 +47,16 @@ export async function syncGoogleCalendarOnce(accessToken: string) {
           )
         );
 
-      // If time is specified, also check time match
+      // Check for duplicate: same title and date is always a duplicate
+      // If both have times, they must also match
       const isDuplicate = existingEvents.some((existing: typeof events.$inferSelect) => {
+        // If both have times, check if they match
         if (event.eventTime && existing.eventTime) {
           return existing.eventTime === event.eventTime;
         }
-        // If both don't have time, consider it duplicate if title and date match
-        return !event.eventTime && !existing.eventTime;
+        // If at least one doesn't have time, consider title + date match as duplicate
+        // This prevents creating multiple all-day events or mixing timed/all-day events
+        return true;
       });
 
       if (!isDuplicate) {

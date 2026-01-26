@@ -17,6 +17,8 @@ export function GoogleCalendarButton() {
     const synced = searchParams.get("synced");
     const skipped = searchParams.get("skipped");
 
+    let timeoutId: NodeJS.Timeout | undefined;
+
     if (success === "calendar_synced") {
       setMessage({
         type: "success",
@@ -24,7 +26,7 @@ export function GoogleCalendarButton() {
       });
 
       // Clean up URL params after showing message
-      setTimeout(() => {
+      timeoutId = setTimeout(() => {
         window.history.replaceState({}, "", window.location.pathname);
         setMessage(null);
       }, 5000);
@@ -59,11 +61,18 @@ export function GoogleCalendarButton() {
       });
 
       // Clean up URL params after showing message
-      setTimeout(() => {
+      timeoutId = setTimeout(() => {
         window.history.replaceState({}, "", window.location.pathname);
         setMessage(null);
       }, 5000);
     }
+
+    // Cleanup function to clear timeout on unmount
+    return () => {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+    };
   }, [searchParams]);
 
   const handleSyncCalendar = () => {

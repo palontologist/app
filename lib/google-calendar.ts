@@ -1,5 +1,6 @@
 import { google } from "googleapis";
 import { OAuth2Client } from "google-auth-library";
+import type { calendar_v3 } from "googleapis";
 
 // Initialize OAuth2 client with environment variables
 export function getOAuth2Client(): OAuth2Client {
@@ -86,7 +87,7 @@ export async function fetchCalendarEvents(accessToken: string) {
 
 // Convert Google Calendar event to our event format
 export function mapGoogleEventToDbEvent(
-  googleEvent: any,
+  googleEvent: calendar_v3.Schema$Event,
   userId: string
 ): {
   userId: string;
