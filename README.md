@@ -27,6 +27,7 @@ Greta is a mission-first productivity app that fuses personal growth, startup ex
   - Greta Alignment Score with AI analysis, cached to persist across reloads.
   - Smart tasks with alignment categories and quick completion.
   - Upcoming events.
+  - **Google Calendar Sync**: One-click OAuth integration to sync upcoming events (next 30 days) from Google Calendar.
 - Impact
   - Enhanced metrics with clear calculations and editing.
   - ROI Snapshot (aligned hours, completed goals, weekly completion rate).
@@ -56,7 +57,7 @@ Greta is a mission-first productivity app that fuses personal growth, startup ex
 - `tasks`: title, description, alignmentScore, alignmentCategory, completed timestamps, optional goal link
 - `goal_activities`: per-goal granular progress events (completed -> progress applied)
 - `work_sessions`: durations created by task timers
-- `events`: simple calendar/timeline events
+- `events`: simple calendar/timeline events with `sync_source` field ("manual" or "google")
 - `dashboard_insights`: cached AI summary per user (persisted between reloads)
 
 ## Environment
@@ -69,7 +70,25 @@ CLERK_PUBLISHABLE_KEY=...
 CLERK_SECRET_KEY=...
 # Optional default org to invite into (else new org is created per invite or by form)
 CLERK_DEFAULT_ORG_ID=org_...
+
+# Google Calendar Integration (OAuth)
+GOOGLE_CLIENT_ID=your-client-id.apps.googleusercontent.com
+GOOGLE_CLIENT_SECRET=your-client-secret
+GOOGLE_REDIRECT_URI=http://localhost:3000/api/google/calendar/callback
+NEXT_PUBLIC_APP_URL=http://localhost:3000
+
+# AI (Groq)
+GROQ_API_KEY=gsk_...
 ```
+
+### Google Calendar Setup
+1. Go to [Google Cloud Console](https://console.cloud.google.com/)
+2. Create a new project or select an existing one
+3. Enable the Google Calendar API
+4. Create OAuth 2.0 credentials (Web application)
+5. Add authorized redirect URI: `http://localhost:3000/api/google/calendar/callback` (or your production URL)
+6. Copy the Client ID and Client Secret to your `.env.local`
+7. Click "Sync Google Calendar" on the dashboard to authorize and sync events
 
 ## Setup
 ```bash

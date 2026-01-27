@@ -23,6 +23,8 @@ import { generateDailyAlignmentReport } from "@/lib/ai"
 import type { Task as TaskType, Goal as GoalType, User as UserType } from "@/lib/types"
 import { createEvent, getEvents } from "@/app/actions/events"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { GoogleCalendarButton } from "@/components/google-calendar-button"
+import { AICalendarSuggestions } from "@/components/ai-calendar-suggestions"
 
 interface ApiGoalType {
   id: number
@@ -565,10 +567,16 @@ export default function EnhancedDashboard() {
       {/* Upcoming Events on Dashboard */}
       <Card className="mt-6">
         <CardHeader className="pb-2">
-          <CardTitle className="flex items-center gap-2 text-base">
-            <Calendar className="h-4 w-4 text-[#28A745]" />
-            Upcoming Events
-          </CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Calendar className="h-4 w-4 text-[#28A745]" />
+              Upcoming Events
+            </CardTitle>
+            <div className="flex gap-2">
+              <AICalendarSuggestions />
+              <GoogleCalendarButton />
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
           {getUpcomingEvents().length > 0 ? (

@@ -110,6 +110,7 @@ export const events = sqliteTable("events", {
   eventType: text("event_type"),
   description: text("description"),
   metadata: text("metadata"), // JSON string
+  syncSource: text("sync_source").default("manual"), // "manual" or "google"
   createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().default(sql`(unixepoch() * 1000)`),
 });
 

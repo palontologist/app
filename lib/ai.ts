@@ -712,3 +712,114 @@ Provide report in this JSON structure:
     }
   }
 }
+
+// Generate AI-powered calendar event suggestions based on goals, activities, and existing events
+export async function generateCalendarSuggestions(
+  userId: string,
+  context: {
+    goals: Array<{ id: number; title: string; description: string | null; deadline: Date | null; currentValue: number; targetValue: number | null }>;
+    activities: Array<{ id: number; title: string; goalId: number; completed: boolean }>;
+    tasks: Array<{ id: number; title: string; description: string | null; alignmentCategory: string | null; completed: boolean }>;
+    events: Array<{ id: number; title: string; eventDate: Date; eventTime: string | null }>;
+    userMission: string;
+    worldVision: string;
+  }
+) {
+  try {
+    // Analyze incomplete goals and high-priority tasks
+    const incompleteGoals = context.goals.filter(g => 
+      !g.targetValue || (g.currentValue < g.targetValue)
+    );
+    
+    const highPriorityTasks = context.tasks.filter(t => 
+      !t.completed && (t.alignmentCategory === "high" || t.alignmentCategory === "medium")
+    );
+
+    const upcomingEvents = context.events.filter(e => e.eventDate >= new Date());
+
+    const goalsText = incompleteGoals.slice(0, 5).map(g => 
+      `"${g.title}" (${g.currentValue}/${g.targetValue || '?'} ${g.description ? `- ${g.description}` : ''})`
+    ).join(", ");
+
+    const tasksText = highPriorityTasks.slice(0, 10).map(t =>
+      `"${t.title}" (${t.alignmentCategory}) ${t.description ? `- ${t.description}` : ''}`
+    ).join(", ");
+
+    const eventsText = upcomingEvents.slice(0, 5).map(e =>
+      `"${e.title}" on ${e.eventDate.toLocaleDateString()} at ${e.eventTime || 'all day'}`
+    ).join(", ");
+
+    const prompt = `
+You are an AI calendar assistant that helps users schedule activities to achieve their goals. Analyze their mission, goals, tasks, and existing calendar to suggest optimal calendar events.
+
+User Mission: "${context.userMission}"
+World Vision: "${context.worldVision}"
+
+Active Goals: ${goalsText || "None"}
+High-Priority Tasks: ${tasksText || "None"}
+Upcoming Events: ${eventsText || "None"}
+
+Based on this information, suggest 3-5 calendar events that would help the user make progress on their goals. For each suggestion:
+1. Choose realistic time slots (consider work hours 9 AM - 6 PM on weekdays)
+2. Schedule focused work blocks (30min - 2hrs) for specific goals/tasks
+3. Avoid conflicts with existing events
+4. Suggest events for the next 7-14 days
+5. Provide clear reasoning for each suggestion
+
+Respond ONLY with valid JSON in this exact structure:
+{
+  "suggestions": [
+    {
+      "title": "Work on [Goal/Task Name]",
+      "description": "Specific activity to accomplish",
+      "suggestedDate": "YYYY-MM-DD",
+      "suggestedTime": "HH:MM",
+      "durationMinutes": 60,
+      "reasoning": "Why this time/activity is optimal",
+      "relatedGoalId": 123,
+      "priority": "high|medium|low"
+    }
+  ],
+  "overallStrategy": "Brief explanation of the scheduling strategy"
+}
+`;
+
+    const { text } = await generateText({
+      model: groq("deepseek-r1-distill-llama-70b"),
+      prompt,
+      temperature: 0.4,
+    });
+
+    // Extract reasoning and JSON separately
+    const reasoningMatch = text.match(/<Thinking>([\s\S]*?)<\/Thinking>/i);
+    const reasoning = reasoningMatch ? reasoningMatch[1].trim() : null;
+
+    // Clean the response to get just the JSON
+    const cleanedText = text
+      .replace(/<Thinking>[\s\S]*?<\/Thinking>/gi, "")
+      .trim()
+      .replace(/```json\n?/g, "")
+      .replace(/```\n?/g, "")
+      .replace(/^[^{]*/, "")
+      .replace(/[^}]*$/, "");
+
+    try {
+      const result = JSON.parse(cleanedText);
+      if (reasoning) {
+        result.ai_reasoning = reasoning;
+      }
+      return result;
+    } catch (parseError) {
+      console.error("JSON parse error, raw response:", text);
+      throw parseError;
+    }
+  } catch (error) {
+    console.error("AI calendar suggestion failed:", error);
+    return {
+      suggestions: [],
+      overallStrategy: "Unable to generate suggestions at this time. Please try again.",
+      error: error instanceof Error ? error.message : "Unknown error",
+    };
+  }
+}
+
