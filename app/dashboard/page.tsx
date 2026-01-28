@@ -1,5 +1,5 @@
 import { Inter } from "next/font/google"
-import EnhancedDashboard from "@/components/enhanced-dashboard"
+import SimplifiedDashboard from "@/components/simplified-dashboard"
 import { auth } from "@clerk/nextjs/server"
 import { redirect } from "next/navigation"
 import { db, userProfiles } from "@/lib/db"
@@ -29,7 +29,7 @@ export default async function DashboardPage() {
   
   return (
     <main className={inter.className}>
-      <EnhancedDashboard />
+      <SimplifiedDashboard />
     </main>
   )
 }

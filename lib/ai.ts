@@ -7,22 +7,29 @@ export async function analyzeTaskAlignment(
   taskDescription: string,
   userMission: string,
   worldVision: string,
+  missionPillars?: string[],
 ) {
   try {
+    const pillarsContext = missionPillars && missionPillars.length > 0
+      ? `\nMission Pillars: ${missionPillars.join(", ")}`
+      : ""
+
     const prompt = `
-You are an AI assistant that analyzes task alignment. Respond ONLY with valid JSON, no other text.
+You are an AI assistant that analyzes task alignment with mission and vision. Respond ONLY with valid JSON, no other text.
 
 Task: "${taskTitle}"
 Description: "${taskDescription}"
 Mission: "${userMission}"
-Vision: "${worldVision}"
+Vision: "${worldVision}"${pillarsContext}
 
 Analyze alignment and respond with this exact JSON structure:
 {
   "alignment_score": [number 0-100],
   "alignment_category": "[high|medium|low|distraction]",
   "analysis": "[brief explanation]",
-  "suggestions": "[actionable suggestion]"
+  "suggestions": "[actionable suggestion]",
+  "mission_pillar": "[suggest which mission pillar this serves, or null]",
+  "impact_statement": "[suggest impact statement: 'This task will help by...']"
 }
 `
 
@@ -63,6 +70,82 @@ Analyze alignment and respond with this exact JSON structure:
       alignment_category: "medium",
       analysis: "Unable to analyze task alignment at this time.",
       suggestions: "Consider how this task directly contributes to your mission.",
+      mission_pillar: null,
+      impact_statement: "This task contributes to your mission by helping you achieve your goals.",
+    }
+  }
+}
+
+export async function analyzeGoalAlignment(
+  goalTitle: string,
+  goalDescription: string,
+  userMission: string,
+  worldVision: string,
+  missionPillars?: string[],
+) {
+  try {
+    const pillarsContext = missionPillars && missionPillars.length > 0
+      ? `\nMission Pillars: ${missionPillars.join(", ")}`
+      : ""
+
+    const prompt = `
+You are an AI assistant that analyzes goal alignment with mission and vision. Respond ONLY with valid JSON, no other text.
+
+Goal: "${goalTitle}"
+Description: "${goalDescription}"
+Mission: "${userMission}"
+Vision: "${worldVision}"${pillarsContext}
+
+Analyze alignment and respond with this exact JSON structure:
+{
+  "alignment_score": [number 0-100],
+  "alignment_category": "[high|medium|low|distraction]",
+  "analysis": "[brief explanation]",
+  "suggestions": "[actionable suggestion]",
+  "mission_pillar": "[suggest which mission pillar this serves, or null]",
+  "impact_statement": "[suggest impact statement: 'This goal will help by...']"
+}
+`
+
+    const { text } = await generateText({
+      model: groq("deepseek-r1-distill-llama-70b"),
+      prompt,
+      temperature: 0.2,
+    })
+
+    // Extract reasoning and JSON separately
+    const reasoningMatch = text.match(/<Thinking>([\s\S]*?)<\/Thinking>/i)
+    const reasoning = reasoningMatch ? reasoningMatch[1].trim() : null
+
+    // Clean the response to get just the JSON
+    const cleanedText = text
+      .replace(/<Thinking>[\s\S]*?<\/Thinking>/gi, "") // Remove reasoning tokens
+      .trim()
+      .replace(/```json\n?/g, "")
+      .replace(/```\n?/g, "")
+      .replace(/^[^{]*/, "") // Remove any text before the first \{
+      .replace(/[^}]*$/, "") // Remove any text after the last \}
+
+    try {
+      const result = JSON.parse(cleanedText)
+      // Add reasoning to the result if available
+      if (reasoning) {
+        result.ai_reasoning = reasoning
+      }
+      return result
+    } catch (parseError) {
+      console.error("JSON parse error, raw response:", text)
+      throw parseError
+    }
+  } catch (error) {
+    console.error("AI analysis failed:", error)
+    return {
+      alignment_score: 50,
+      alignment_category: "medium",
+      analysis: "Unable to analyze goal alignment at this time.",
+      suggestions: "Consider how this goal directly contributes to your mission.",
+      mission_pillar: null,
+      impact_statement: "This goal contributes to your mission by helping you achieve your objectives.",
     }
   }
 }
@@ -454,3 +537,289 @@ Provide insights in this JSON structure:
     }
   }
 }
+
+export async function generateDailyAlignmentReport(
+  tasks: Task[],
+  goals: any[],
+  userMission: string,
+  userFocusAreas: string | null,
+  userOnboarded: boolean
+) {
+  try {
+    if (tasks.length === 0 && goals.length === 0) {
+      return {
+        overall_alignment_score: 0,
+        completed_tasks_today: 0,
+        total_tasks_today: 0,
+        high_impact_tasks_completed: 0,
+        distraction_tasks_today: 0,
+        goals_progress: 0,
+        key_insights: ["Add your first task or goal to see alignment analysis"],
+        recommendations: ["Start by defining what matters most to you"],
+        motivational_message: "Every journey begins with a single step.",
+        transparency_breakdown: {
+          completed_high_alignment: 0,
+          completed_medium_alignment: 0,
+          completed_low_alignment: 0,
+          completed_distraction: 0,
+          pending_high_alignment: 0,
+          pending_medium_alignment: 0,
+          pending_low_alignment: 0,
+          pending_distraction: 0,
+        }
+      }
+    }
+
+    const today = new Date().toISOString().split('T')[0]
+    const completedTasks = tasks.filter((t) => t.completed && t.completed_at && t.completed_at.toISOString().split('T')[0] === today)
+    const highAlignmentTasks = tasks.filter((t) => (t.alignment_score || 0) >= 80)
+    const distractionTasks = tasks.filter((t) => t.alignment_category === "distraction")
+
+    const completedHighAlignment = completedTasks.filter((t) => (t.alignment_score || 0) >= 80).length
+    const completedDistraction = completedTasks.filter((t) => t.alignment_category === "distraction").length
+
+    const avgAlignment = tasks.length > 0 ? Math.round(tasks.reduce((sum, t) => sum + (t.alignment_score || 0), 0) / tasks.length) : 0
+    const goalsProgress = goals.length > 0 ? Math.round(goals.reduce((sum, g) => {
+      const progress = g.target_value ? (g.current_value || 0) / g.target_value : 0
+      return sum + Math.min(progress, 1)
+    }, 0) / goals.length * 100) : 0
+
+    // Generate AI-powered report
+    if (tasks.length > 0) {
+      try {
+        const taskSummary = tasks.slice(0, 10).map((t) =>
+          `"${t.title}" (${t.alignment_score || 0}% aligned, ${t.completed ? "completed" : "pending"})`
+        ).join(", ")
+
+        const prompt = `
+Generate a daily mission alignment report for a founder. Be specific, actionable, and encouraging. Respond with valid JSON only.
+
+Mission: "${userMission}"
+Focus Areas: "${userFocusAreas || "Not specified"}"
+Today's Tasks: ${taskSummary}
+Completed Tasks Today: ${completedTasks.length}
+Goals Progress: ${goalsProgress}%
+
+Provide report in this JSON structure:
+{
+  "overall_alignment_score": [0-100 based on completed tasks],
+  "key_insights": ["2-3 specific insights about their mission alignment"],
+  "recommendations": ["1-2 actionable next steps"],
+  "motivational_message": "encouraging message tied to their mission",
+  "transparency_breakdown": {
+    "completed_high_alignment": [count],
+    "completed_medium_alignment": [count],
+    "completed_low_alignment": [count],
+    "completed_distraction": [count],
+    "pending_high_alignment": [count],
+    "pending_medium_alignment": [count],
+    "pending_low_alignment": [count],
+    "pending_distraction": [count]
+  }
+}
+`
+
+        const { text } = await generateText({
+          model: groq("deepseek-r1-distill-llama-70b"),
+          prompt,
+          temperature: 0.3,
+        })
+
+        const reasoningMatch = text.match(/<Thinking>([\s\S]*?)<\/Thinking>/i)
+        const reasoning = reasoningMatch ? reasoningMatch[1].trim() : null
+
+        const cleanedText = text
+          .replace(/<Thinking>[\s\S]*?<\/Thinking>/gi, "")
+          .trim()
+          .replace(/```json\n?/g, "")
+          .replace(/```\n?/g, "")
+          .replace(/^[^{]*/, "")
+          .replace(/[^}]*$/, "")
+
+        const aiReport = JSON.parse(cleanedText)
+
+        return {
+          overall_alignment_score: aiReport.overall_alignment_score || avgAlignment,
+          completed_tasks_today: completedTasks.length,
+          total_tasks_today: tasks.length,
+          high_impact_tasks_completed: completedHighAlignment,
+          distraction_tasks_today: completedDistraction,
+          goals_progress: goalsProgress,
+          key_insights: aiReport.key_insights || ["Focus on high-alignment activities"],
+          recommendations: aiReport.recommendations || ["Complete your highest-impact pending tasks"],
+          motivational_message: aiReport.motivational_message || "Keep pushing toward your mission!",
+          transparency_breakdown: aiReport.transparency_breakdown || {
+            completed_high_alignment: completedTasks.filter(t => (t.alignment_score || 0) >= 80).length,
+            completed_medium_alignment: completedTasks.filter(t => (t.alignment_score || 0) >= 50 && (t.alignment_score || 0) < 80).length,
+            completed_low_alignment: completedTasks.filter(t => (t.alignment_score || 0) < 50 && t.alignment_category !== "distraction").length,
+            completed_distraction: completedDistraction,
+            pending_high_alignment: tasks.filter(t => !t.completed && (t.alignment_score || 0) >= 80).length,
+            pending_medium_alignment: tasks.filter(t => !t.completed && (t.alignment_score || 0) >= 50 && (t.alignment_score || 0) < 80).length,
+            pending_low_alignment: tasks.filter(t => !t.completed && (t.alignment_score || 0) < 50 && t.alignment_category !== "distraction").length,
+            pending_distraction: tasks.filter(t => !t.completed && t.alignment_category === "distraction").length,
+          },
+          ai_reasoning: reasoning,
+        }
+      } catch (aiError) {
+        console.error("AI daily report failed:", aiError)
+      }
+    }
+
+    // Fallback report
+    return {
+      overall_alignment_score: avgAlignment,
+      completed_tasks_today: completedTasks.length,
+      total_tasks_today: tasks.length,
+      high_impact_tasks_completed: completedHighAlignment,
+      distraction_tasks_today: completedDistraction,
+      goals_progress: goalsProgress,
+      key_insights: ["Focus on completing high-alignment tasks"],
+      recommendations: ["Prioritize tasks that directly advance your mission"],
+      motivational_message: "Every aligned action brings you closer to your goals.",
+      transparency_breakdown: {
+        completed_high_alignment: completedTasks.filter(t => (t.alignment_score || 0) >= 80).length,
+        completed_medium_alignment: completedTasks.filter(t => (t.alignment_score || 0) >= 50 && (t.alignment_score || 0) < 80).length,
+        completed_low_alignment: completedTasks.filter(t => (t.alignment_score || 0) < 50 && t.alignment_category !== "distraction").length,
+        completed_distraction: completedDistraction,
+        pending_high_alignment: tasks.filter(t => !t.completed && (t.alignment_score || 0) >= 80).length,
+        pending_medium_alignment: tasks.filter(t => !t.completed && (t.alignment_score || 0) >= 50 && (t.alignment_score || 0) < 80).length,
+        pending_low_alignment: tasks.filter(t => !t.completed && (t.alignment_score || 0) < 50 && t.alignment_category !== "distraction").length,
+        pending_distraction: tasks.filter(t => !t.completed && t.alignment_category === "distraction").length,
+      }
+    }
+  } catch (error) {
+    console.error("Daily alignment report failed:", error)
+    return {
+      overall_alignment_score: 0,
+      completed_tasks_today: 0,
+      total_tasks_today: 0,
+      high_impact_tasks_completed: 0,
+      distraction_tasks_today: 0,
+      goals_progress: 0,
+      key_insights: ["Unable to generate insights at this time"],
+      recommendations: ["Add tasks to see alignment analysis"],
+      motivational_message: "Start your journey today!",
+      transparency_breakdown: {
+        completed_high_alignment: 0,
+        completed_medium_alignment: 0,
+        completed_low_alignment: 0,
+        completed_distraction: 0,
+        pending_high_alignment: 0,
+        pending_medium_alignment: 0,
+        pending_low_alignment: 0,
+        pending_distraction: 0,
+      }
+    }
+  }
+}
+
+// Generate AI-powered calendar event suggestions based on goals, activities, and existing events
+export async function generateCalendarSuggestions(
+  userId: string,
+  context: {
+    goals: Array<{ id: number; title: string; description: string | null; deadline: Date | null; currentValue: number; targetValue: number | null }>;
+    activities: Array<{ id: number; title: string; goalId: number; completed: boolean }>;
+    tasks: Array<{ id: number; title: string; description: string | null; alignmentCategory: string | null; completed: boolean }>;
+    events: Array<{ id: number; title: string; eventDate: Date; eventTime: string | null }>;
+    userMission: string;
+    worldVision: string;
+  }
+) {
+  try {
+    // Analyze incomplete goals and high-priority tasks
+    const incompleteGoals = context.goals.filter(g => 
+      !g.targetValue || (g.currentValue < g.targetValue)
+    );
+    
+    const highPriorityTasks = context.tasks.filter(t => 
+      !t.completed && (t.alignmentCategory === "high" || t.alignmentCategory === "medium")
+    );
+
+    const upcomingEvents = context.events.filter(e => e.eventDate >= new Date());
+
+    const goalsText = incompleteGoals.slice(0, 5).map(g => 
+      `"${g.title}" (${g.currentValue}/${g.targetValue || '?'} ${g.description ? `- ${g.description}` : ''})`
+    ).join(", ");
+
+    const tasksText = highPriorityTasks.slice(0, 10).map(t =>
+      `"${t.title}" (${t.alignmentCategory}) ${t.description ? `- ${t.description}` : ''}`
+    ).join(", ");
+
+    const eventsText = upcomingEvents.slice(0, 5).map(e =>
+      `"${e.title}" on ${e.eventDate.toLocaleDateString()} at ${e.eventTime || 'all day'}`
+    ).join(", ");
+
+    const prompt = `
+You are an AI calendar assistant that helps users schedule activities to achieve their goals. Analyze their mission, goals, tasks, and existing calendar to suggest optimal calendar events.
+
+User Mission: "${context.userMission}"
+World Vision: "${context.worldVision}"
+
+Active Goals: ${goalsText || "None"}
+High-Priority Tasks: ${tasksText || "None"}
+Upcoming Events: ${eventsText || "None"}
+
+Based on this information, suggest 3-5 calendar events that would help the user make progress on their goals. For each suggestion:
+1. Choose realistic time slots (consider work hours 9 AM - 6 PM on weekdays)
+2. Schedule focused work blocks (30min - 2hrs) for specific goals/tasks
+3. Avoid conflicts with existing events
+4. Suggest events for the next 7-14 days
+5. Provide clear reasoning for each suggestion
+
+Respond ONLY with valid JSON in this exact structure:
+{
+  "suggestions": [
+    {
+      "title": "Work on [Goal/Task Name]",
+      "description": "Specific activity to accomplish",
+      "suggestedDate": "YYYY-MM-DD",
+      "suggestedTime": "HH:MM",
+      "durationMinutes": 60,
+      "reasoning": "Why this time/activity is optimal",
+      "relatedGoalId": 123,
+      "priority": "high|medium|low"
+    }
+  ],
+  "overallStrategy": "Brief explanation of the scheduling strategy"
+}
+`;
+
+    const { text } = await generateText({
+      model: groq("deepseek-r1-distill-llama-70b"),
+      prompt,
+      temperature: 0.4,
+    });
+
+    // Extract reasoning and JSON separately
+    const reasoningMatch = text.match(/<Thinking>([\s\S]*?)<\/Thinking>/i);
+    const reasoning = reasoningMatch ? reasoningMatch[1].trim() : null;
+
+    // Clean the response to get just the JSON
+    const cleanedText = text
+      .replace(/<Thinking>[\s\S]*?<\/Thinking>/gi, "")
+      .trim()
+      .replace(/```json\n?/g, "")
+      .replace(/```\n?/g, "")
+      .replace(/^[^{]*/, "")
+      .replace(/[^}]*$/, "");
+
+    try {
+      const result = JSON.parse(cleanedText);
+      if (reasoning) {
+        result.ai_reasoning = reasoning;
+      }
+      return result;
+    } catch (parseError) {
+      console.error("JSON parse error, raw response:", text);
+      throw parseError;
+    }
+  } catch (error) {
+    console.error("AI calendar suggestion failed:", error);
+    return {
+      suggestions: [],
+      overallStrategy: "Unable to generate suggestions at this time. Please try again.",
+      error: error instanceof Error ? error.message : "Unknown error",
+    };
+  }
+}
+

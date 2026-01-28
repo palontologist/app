@@ -13,13 +13,18 @@ import SmartTaskDialog from "@/components/smart-task-dialog"
 import GoalsDialog from "@/components/goals-dialog"
 import EnhancedGoalManagement from "@/components/enhanced-goal-management"
 import TaskWithTimer from "@/components/task-with-timer"
+import WeeklyReflection from "@/components/weekly-reflection"
+import MissionAlignmentReport from "@/components/mission-alignment-report"
 import { getTasks, toggleTaskCompletion, deleteTask } from "@/app/actions/tasks"
 import { getGoals } from "@/app/actions/goals"
 import { getUser } from "@/app/actions/user"
 import { generateDashboardSummary, getCachedDashboardSummary } from "@/app/actions/analytics"
+import { generateDailyAlignmentReport } from "@/lib/ai"
 import type { Task as TaskType, Goal as GoalType, User as UserType } from "@/lib/types"
 import { createEvent, getEvents } from "@/app/actions/events"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { GoogleCalendarButton } from "@/components/google-calendar-button"
+import { AICalendarSuggestions } from "@/components/ai-calendar-suggestions"
 
 interface ApiGoalType {
   id: number
@@ -40,6 +45,7 @@ export default function EnhancedDashboard() {
   const [goals, setGoals] = React.useState<GoalType[]>([])
   const [user, setUser] = React.useState<UserType | null>(null)
   const [alignmentSummary, setAlignmentSummary] = React.useState<string>("Loading alignment analysis...")
+  const [dailyReport, setDailyReport] = React.useState<any>(null)
   const [openAdd, setOpenAdd] = React.useState(false)
   const [loading, setLoading] = React.useState(true)
   const [openGoals, setOpenGoals] = React.useState(false)
@@ -95,10 +101,11 @@ export default function EnhancedDashboard() {
         })
         setGoals(filtered)
         
-        // Generate AI alignment summary after all data is loaded
+        // Generate AI alignment summary and daily report after all data is loaded
         const finalTasks = tasksResult.success ? tasksResult.tasks : []
+        const finalGoals = goalsResult.success ? goalsResult.goals : []
         const finalUser = userResult.success && userResult.user ? userResult.user : null
-        
+
         if (finalUser) {
           try {
             const result = await generateDashboardSummary()
@@ -107,6 +114,16 @@ export default function EnhancedDashboard() {
             } else {
               setAlignmentSummary(result.summary || "Add tasks and goals to get AI insights on your mission alignment!")
             }
+
+            // Generate daily alignment report
+            const report = await generateDailyAlignmentReport(
+              finalTasks,
+              finalGoals,
+              finalUser.mission || "",
+              finalUser.focusAreas || null,
+              finalUser.onboarded || false
+            )
+            setDailyReport(report)
           } catch (error) {
             console.warn("Failed to generate AI summary:", error)
             setAlignmentSummary("Add tasks and goals to get AI insights on your mission alignment!")
@@ -273,20 +290,6 @@ export default function EnhancedDashboard() {
             <User className="h-4 w-4" />
           </Link>
           <Link
-            href="/impact"
-            className="inline-flex h-9 items-center justify-center rounded-md border bg-background px-3 text-sm hover:bg-accent hover:text-accent-foreground"
-            aria-label="Open Impact"
-          >
-            <Globe className="h-4 w-4" />
-          </Link>
-          <Link
-            href="/brainstorm"
-            className="inline-flex h-9 items-center justify-center rounded-md border bg-background px-3 text-sm hover:bg-accent hover:text-accent-foreground"
-            aria-label="Open Brainstorm"
-          >
-            <Lightbulb className="h-4 w-4" />
-          </Link>
-          <Link
             href="/analytics"
             className="inline-flex h-9 items-center justify-center rounded-md border bg-background px-3 text-sm hover:bg-accent hover:text-accent-foreground"
             aria-label="Open Analytics"
@@ -318,27 +321,56 @@ export default function EnhancedDashboard() {
         </CardContent>
       </Card>
 
-      {/* AI-Powered Alignment Score */}
-      <Card className="mb-6">
-        <CardContent className="flex items-center justify-between p-4">
-          <div>
-            <div className="flex items-center gap-2 text-sm text-[#6B7280]">
-              <Sparkles className="h-3 w-3" />
-              Greta Alignment Score
+      {/* Enhanced Mission Alignment Score */}
+      <Card className="mb-6 border-l-4 border-l-[#28A745]">
+        <CardContent className="p-4">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <Sparkles className="h-4 w-4 text-[#28A745]" />
+              <span className="text-sm font-medium text-[#6B7280]">Greta Mission Alignment Score</span>
             </div>
-            <div className="mt-1 text-2xl font-semibold text-[#1A1A1A]">Today</div>
-            <p className="mt-1 text-xs text-[#6B7280]">
+            <div className="text-right">
+              <div className="text-xs text-[#6B7280]">Today</div>
+              <div className="text-lg font-bold text-[#1A1A1A]">
+                {dailyReport?.overall_alignment_score || calculateAlignmentScore()}%
+              </div>
+            </div>
+          </div>
+
+          <CircularProgress
+            value={dailyReport?.overall_alignment_score || calculateAlignmentScore()}
+            label="AI Analyzed"
+            indicatorColor="#28A745"
+          />
+
+          <div className="mt-3 space-y-2">
+            <p className="text-xs text-[#6B7280] font-medium">
               {alignmentSummary}
             </p>
+
+            {dailyReport && (
+              <div className="bg-[#28A745]/5 rounded-lg p-3 border border-[#28A745]/20">
+                <div className="text-xs font-medium text-[#28A745] mb-2">🎯 Daily Insights</div>
+                <div className="space-y-1 text-xs text-[#6B7280]">
+                  {dailyReport.key_insights.slice(0, 2).map((insight: string, i: number) => (
+                    <div key={i} className="flex items-start gap-1">
+                      <span className="text-[#28A745] mt-0.5">•</span>
+                      <span>{insight}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
-          <CircularProgress value={calculateAlignmentScore()} label="AI Analyzed" indicatorColor="#28A745" />
         </CardContent>
       </Card>
 
-      {/* Quick History access above filters */}
-      <div className="mb-3 flex justify-end">
+      {/* Quick Actions */}
+      <div className="mb-3 flex justify-end gap-2">
+        <MissionAlignmentReport reportType="weekly" />
+        <WeeklyReflection />
         <Button asChild size="sm" variant="outline" className="text-[#28A745] border-[#28A745] hover:bg-[#28A745] hover:text-white">
-          <Link href="/history">History</Link>
+          <Link href="/analytics">Analytics</Link>
         </Button>
       </div>
 
@@ -436,13 +468,115 @@ export default function EnhancedDashboard() {
         )}
       </section>
 
+      {/* Impact Metrics & Ideas Section */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+        {/* Key Metrics */}
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <TrendingUp className="h-4 w-4 text-blue-600" />
+              Impact Metrics
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              <div className="flex items-center justify-between p-3 rounded-lg bg-blue-50 border border-blue-200">
+                <div className="flex items-center gap-2">
+                  <Target className="h-4 w-4 text-blue-600" />
+                  <span className="text-sm font-medium">Goals Progress</span>
+                </div>
+                <div className="text-right">
+                  <div className="text-lg font-bold text-blue-600">
+                    {goals.filter(g => (g.current_value || 0) >= (g.target_value || 1) * 0.8).length}/{goals.length}
+                  </div>
+                  <div className="text-xs text-blue-700">On Track</div>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between p-3 rounded-lg bg-green-50 border border-green-200">
+                <div className="flex items-center gap-2">
+                  <CheckCircle className="h-4 w-4 text-green-600" />
+                  <span className="text-sm font-medium">Tasks Completed Today</span>
+                </div>
+                <div className="text-right">
+                  <div className="text-lg font-bold text-green-600">
+                    {tasks.filter(t => t.completed && new Date(t.completed_at || 0).toDateString() === new Date().toDateString()).length}
+                  </div>
+                  <div className="text-xs text-green-700">Today</div>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between p-3 rounded-lg bg-orange-50 border border-orange-200">
+                <div className="flex items-center gap-2">
+                  <Clock className="h-4 w-4 text-orange-600" />
+                  <span className="text-sm font-medium">High Alignment</span>
+                </div>
+                <div className="text-right">
+                  <div className="text-lg font-bold text-orange-600">
+                    {tasks.filter(t => (t.alignment_score || 0) >= 80).length}
+                  </div>
+                  <div className="text-xs text-orange-700">Tasks</div>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Recent Ideas & Brainstorm */}
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Lightbulb className="h-4 w-4 text-purple-600" />
+              Ideas & Insights
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {/* AI Daily Insights */}
+              {dailyReport && dailyReport.key_insights.slice(0, 2).map((insight: string, i: number) => (
+                <div key={i} className="p-3 rounded-lg bg-purple-50 border border-purple-200">
+                  <div className="flex items-start gap-2">
+                    <Lightbulb className="h-3 w-3 text-purple-600 mt-0.5 flex-shrink-0" />
+                    <p className="text-xs text-purple-800">{insight}</p>
+                  </div>
+                </div>
+              ))}
+
+              {/* Mission-aligned suggestions */}
+              {dailyReport && dailyReport.recommendations && dailyReport.recommendations.slice(0, 2).map((rec: string, i: number) => (
+                <div key={`rec-${i}`} className="p-3 rounded-lg bg-yellow-50 border border-yellow-200">
+                  <div className="flex items-start gap-2">
+                    <Target className="h-3 w-3 text-yellow-600 mt-0.5 flex-shrink-0" />
+                    <p className="text-xs text-yellow-800">{rec}</p>
+                  </div>
+                </div>
+              ))}
+
+              {/* Quick brainstorming prompt */}
+              <div className="p-3 rounded-lg bg-gray-50 border border-gray-200">
+                <p className="text-xs text-gray-600 mb-2">💡 Quick Brainstorm</p>
+                <p className="text-xs text-gray-700">
+                  What one task could move you 1% closer to your mission today?
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
       {/* Upcoming Events on Dashboard */}
       <Card className="mt-6">
         <CardHeader className="pb-2">
-          <CardTitle className="flex items-center gap-2 text-base">
-            <Calendar className="h-4 w-4 text-[#28A745]" />
-            Upcoming Events
-          </CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Calendar className="h-4 w-4 text-[#28A745]" />
+              Upcoming Events
+            </CardTitle>
+            <div className="flex gap-2">
+              <AICalendarSuggestions />
+              <GoogleCalendarButton />
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
           {getUpcomingEvents().length > 0 ? (

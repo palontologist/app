@@ -26,6 +26,36 @@ export const userProfiles = sqliteTable("user_profiles", {
   worldVision: text("world_vision"),
   focusAreas: text("focus_areas"),
   onboarded: integer("onboarded", { mode: "boolean" }).default(false),
+  currentWorkspaceType: text("current_workspace_type").default("personal"), // "personal" | "startup"
+  defaultOrganizationId: text("default_organization_id"), // Clerk org ID for startup workspace
+  createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().default(sql`(unixepoch() * 1000)`),
+  updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull().default(sql`(unixepoch() * 1000)`),
+});
+
+// Workspaces table to track team workspaces
+export const workspaces = sqliteTable("workspaces", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  organizationId: text("organization_id").notNull().unique(), // Clerk organization ID
+  name: text("name").notNull(),
+  description: text("description"),
+  mission: text("mission"),
+  createdBy: text("created_by").notNull(), // Clerk user ID of creator
+  createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().default(sql`(unixepoch() * 1000)`),
+  updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull().default(sql`(unixepoch() * 1000)`),
+});
+
+// Cofounder/team member tracking
+export const cofounders = sqliteTable("cofounders", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  workspaceId: integer("workspace_id").notNull(),
+  userId: text("user_id"), // Clerk user ID (null if not yet joined)
+  email: text("email").notNull(),
+  name: text("name").notNull(),
+  role: text("role").default("member"), // "admin" | "member" | "viewer"
+  status: text("status").default("invited"), // "invited" | "active" | "inactive"
+  invitationId: text("invitation_id"), // Clerk invitation ID
+  invitedBy: text("invited_by").notNull(), // Clerk user ID of inviter
+  joinedAt: integer("joined_at", { mode: "timestamp_ms" }),
   createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().default(sql`(unixepoch() * 1000)`),
   updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull().default(sql`(unixepoch() * 1000)`),
 });
@@ -37,6 +67,8 @@ export const now = () => Date.now();
 export const goals = sqliteTable("goals", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   userId: text("user_id").notNull(),
+  workspaceType: text("workspace_type").default("personal"), // "personal" | "startup"
+  organizationId: text("organization_id"), // Clerk org ID for startup goals
   title: text("title").notNull(),
   description: text("description"),
   category: text("category"),
@@ -55,6 +87,8 @@ export const tasks = sqliteTable("tasks", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   userId: text("user_id").notNull(),
   goalId: integer("goal_id"), // FK relationship (enforced logically)
+  workspaceType: text("workspace_type").default("personal"), // "personal" | "startup"
+  organizationId: text("organization_id"), // Clerk org ID for startup tasks
   title: text("title").notNull(),
   description: text("description"),
   alignmentScore: integer("alignment_score"),
@@ -76,6 +110,7 @@ export const events = sqliteTable("events", {
   eventType: text("event_type"),
   description: text("description"),
   metadata: text("metadata"), // JSON string
+  syncSource: text("sync_source").default("manual"), // "manual" or "google"
   createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().default(sql`(unixepoch() * 1000)`),
 });
 
@@ -136,3 +171,19 @@ export const googleAccounts = sqliteTable(
     ),
   })
 );
+
+// Historical alignment tracking
+export const alignmentHistory = sqliteTable("alignment_history", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  userId: text("user_id").notNull(),
+  date: text("date").notNull(), // YYYY-MM-DD
+  overallAlignmentScore: integer("overall_alignment_score").notNull(),
+  completedTasksCount: integer("completed_tasks_count").default(0),
+  totalTasksCount: integer("total_tasks_count").default(0),
+  highAlignmentTasks: integer("high_alignment_tasks").default(0),
+  distractionTasks: integer("distraction_tasks").default(0),
+  completedGoalsCount: integer("completed_goals_count").default(0),
+  totalGoalsCount: integer("total_goals_count").default(0),
+  aiInsightsSummary: text("ai_insights_summary"),
+  createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().default(sql`(unixepoch() * 1000)`),
+});
