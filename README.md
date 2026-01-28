@@ -71,6 +71,11 @@ CLERK_SECRET_KEY=...
 # Optional default org to invite into (else new org is created per invite or by form)
 CLERK_DEFAULT_ORG_ID=org_...
 
+# Google OAuth (Required for Google Calendar integration)
+GOOGLE_CLIENT_ID=your_google_client_id.googleusercontent.com
+GOOGLE_CLIENT_SECRET=your_google_client_secret
+GOOGLE_REDIRECT_URI=https://your-domain.vercel.app/api/google/auth/callback
+NEXT_PUBLIC_APP_URL=https://your-domain.vercel.app
 # Google Calendar Integration (OAuth)
 GOOGLE_CLIENT_ID=your-client-id.apps.googleusercontent.com
 GOOGLE_CLIENT_SECRET=your-client-secret
