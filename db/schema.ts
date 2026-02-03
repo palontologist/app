@@ -110,13 +110,9 @@ export const events = sqliteTable("events", {
   eventType: text("event_type"),
   description: text("description"),
   metadata: text("metadata"), // JSON string
-<<<<<<< HEAD
-  syncSource: text("sync_source").default("manual"), // "manual" or "google"
-=======
   source: text("source").default("local"), // "local" | "google"
   googleEventId: text("google_event_id"), // Google Calendar event ID
   googleCalendarId: text("google_calendar_id"), // Which Google Calendar it came from
->>>>>>> 8dbdf7c (Implement Google Calendar integration: Add API routes for fetching and syncing events, enhance database schema to track Google events, and create migration for new fields.)
   createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().default(sql`(unixepoch() * 1000)`),
 });
 
