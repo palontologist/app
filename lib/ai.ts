@@ -34,7 +34,7 @@ Analyze alignment and respond with this exact JSON structure:
 `
 
     const { text } = await generateText({
-      model: groq("deepseek-r1-distill-llama-70b"),
+      model: groq("moonshotai/kimi-k2-instruct-0905"),
       prompt,
       temperature: 0.2,
     })
@@ -108,7 +108,7 @@ Analyze alignment and respond with this exact JSON structure:
 `
 
     const { text } = await generateText({
-      model: groq("deepseek-r1-distill-llama-70b"),
+      model: groq("moonshotai/kimi-k2-instruct-0905"),
       prompt,
       temperature: 0.2,
     })
@@ -236,7 +236,7 @@ Respond with this JSON structure:
 `
 
         const { text } = await generateText({
-          model: groq("deepseek-r1-distill-llama-70b"),
+          model: groq("moonshotai/kimi-k2-instruct-0905"),
           prompt,
           temperature: 0.3,
         })
@@ -365,7 +365,7 @@ Respond with just the assessment text, no JSON or formatting.
 `
 
         const { text } = await generateText({
-          model: groq("deepseek-r1-distill-llama-70b"),
+          model: groq("moonshotai/kimi-k2-instruct-0905"),
           prompt,
           temperature: 0.1,
         })
@@ -461,7 +461,7 @@ Provide insights in this JSON structure:
 `
 
         const { text } = await generateText({
-          model: groq("deepseek-r1-distill-llama-70b"),
+          model: groq("moonshotai/kimi-k2-instruct-0905"),
           prompt,
           temperature: 0.3,
         })
@@ -620,7 +620,7 @@ Provide report in this JSON structure:
 `
 
         const { text } = await generateText({
-          model: groq("deepseek-r1-distill-llama-70b"),
+          model: groq("moonshotai/kimi-k2-instruct-0905"),
           prompt,
           temperature: 0.3,
         })
@@ -785,7 +785,7 @@ Respond ONLY with valid JSON in this exact structure:
 `;
 
     const { text } = await generateText({
-      model: groq("deepseek-r1-distill-llama-70b"),
+      model: groq("moonshotai/kimi-k2-instruct-0905"),
       prompt,
       temperature: 0.4,
     });

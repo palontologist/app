@@ -92,7 +92,7 @@ Keep it under 200 words, be specific to their mission, and maintain an encouragi
 `
 
       const { text } = await generateText({
-        model: groq("deepseek-r1-distill-llama-70b"),
+        model: groq("moonshotai/kimi-k2-instruct-0905"),
         prompt,
         temperature: 0.3,
       })

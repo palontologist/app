@@ -14,6 +14,8 @@ export async function GET(req: NextRequest) {
 
     console.log('Google auth callback: Processing for user', session.userId)
     const url = new URL(req.url)
+    console.log('Google auth callback: Full URL:', url.toString())
+    console.log('Google auth callback: Query params:', Object.fromEntries(url.searchParams))
     const code = url.searchParams.get('code')
     const error = url.searchParams.get('error')
 
