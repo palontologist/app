@@ -72,14 +72,9 @@ CLERK_SECRET_KEY=...
 CLERK_DEFAULT_ORG_ID=org_...
 
 # Google OAuth (Required for Google Calendar integration)
-GOOGLE_CLIENT_ID=your_google_client_id.googleusercontent.com
-GOOGLE_CLIENT_SECRET=your_google_client_secret
-GOOGLE_REDIRECT_URI=https://your-domain.vercel.app/api/google/auth/callback
-NEXT_PUBLIC_APP_URL=https://your-domain.vercel.app
-# Google Calendar Integration (OAuth)
 GOOGLE_CLIENT_ID=your-client-id.apps.googleusercontent.com
 GOOGLE_CLIENT_SECRET=your-client-secret
-GOOGLE_REDIRECT_URI=http://localhost:3000/api/google/calendar/callback
+GOOGLE_REDIRECT_URI=http://localhost:3000/api/google/auth/callback
 NEXT_PUBLIC_APP_URL=http://localhost:3000
 
 # AI (Groq)
@@ -87,13 +82,22 @@ GROQ_API_KEY=gsk_...
 ```
 
 ### Google Calendar Setup
+
+For detailed instructions on setting up Google Calendar integration, see **[GOOGLE_CALENDAR_SETUP.md](./GOOGLE_CALENDAR_SETUP.md)**.
+
+**Quick Start:**
 1. Go to [Google Cloud Console](https://console.cloud.google.com/)
-2. Create a new project or select an existing one
+2. Create OAuth 2.0 credentials (Web application)
 3. Enable the Google Calendar API
-4. Create OAuth 2.0 credentials (Web application)
-5. Add authorized redirect URI: `http://localhost:3000/api/google/calendar/callback` (or your production URL)
-6. Copy the Client ID and Client Secret to your `.env.local`
+4. Add authorized redirect URI: `http://localhost:3000/api/google/auth/callback` (or your production URL)
+5. Copy the Client ID and Client Secret to your `.env.local`
+6. Restart your dev server and visit `/api/google/health` to verify configuration
 7. Click "Sync Google Calendar" on the dashboard to authorize and sync events
+
+**Troubleshooting:**
+- If you get compilation errors, check that all environment variables are set
+- Visit `/api/google/health` to see configuration status
+- See [GOOGLE_CALENDAR_SETUP.md](./GOOGLE_CALENDAR_SETUP.md) for detailed troubleshooting
 
 ## Setup
 ```bash
