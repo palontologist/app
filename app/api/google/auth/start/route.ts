@@ -11,9 +11,23 @@ export async function GET() {
     }
 
     console.log('Google auth start: Generating auth URL for user', session.userId)
-    const url = getAuthUrl(defaultCalendarScopes)
-    console.log('Google auth start: Redirecting to', url)
-    return NextResponse.redirect(url)
+    
+    try {
+      const url = getAuthUrl(defaultCalendarScopes)
+      console.log('Google auth start: Redirecting to', url)
+      return NextResponse.redirect(url)
+    } catch (configError) {
+      console.error('Google auth start: Configuration error:', configError)
+      const errorMessage = configError instanceof Error ? configError.message : 'Unknown configuration error'
+      return NextResponse.json(
+        { 
+          error: 'Google OAuth is not configured', 
+          details: errorMessage,
+          message: 'Please ensure GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, and GOOGLE_REDIRECT_URI environment variables are set.'
+        },
+        { status: 500 }
+      )
+    }
   } catch (error) {
     console.error('Google auth start error:', error)
     return NextResponse.json(

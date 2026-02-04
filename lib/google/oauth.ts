@@ -10,11 +10,12 @@ export function createOAuthClient(): OAuth2Client {
   if (!GOOGLE_REDIRECT_URI) missing.push('GOOGLE_REDIRECT_URI')
 
   if (missing.length > 0) {
-    console.error('Missing Google OAuth environment variables:', missing.join(', '))
-    throw new Error(`Missing Google OAuth environment variables: ${missing.join(', ')}`)
+    const errorMsg = `Missing Google OAuth environment variables: ${missing.join(', ')}. Please set these in your environment configuration (e.g., .env.local for development or your hosting platform's environment variables).`
+    console.error('❌ Google OAuth Configuration Error:', errorMsg)
+    throw new Error(errorMsg)
   }
 
-  console.log('Google OAuth client created successfully')
+  console.log('✅ Google OAuth client created successfully')
   return new google.auth.OAuth2(GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REDIRECT_URI)
 }
 
