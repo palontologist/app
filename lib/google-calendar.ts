@@ -179,6 +179,31 @@ export async function createGoogleCalendarEvent(
   }
 }
 
+// Update Google Calendar event (e.g. mark as completed via description)
+export async function updateGoogleCalendarEvent(
+  userId: string,
+  googleEventId: string,
+  updates: { description?: string; summary?: string }
+) {
+  const accessToken = await getValidAccessToken(userId);
+  const oauth2Client = getOAuth2Client();
+  oauth2Client.setCredentials({ access_token: accessToken });
+
+  const calendar = google.calendar({ version: "v3", auth: oauth2Client });
+
+  try {
+    const response = await calendar.events.patch({
+      calendarId: "primary",
+      eventId: googleEventId,
+      requestBody: updates,
+    });
+    return response.data;
+  } catch (error) {
+    console.error("Error updating Google Calendar event:", error);
+    throw new Error("Failed to update event in Google Calendar");
+  }
+}
+
 // Generate authorization URL with calendar scopes
 export function generateAuthUrl(): string {
   const oauth2Client = getOAuth2Client();
@@ -259,7 +284,9 @@ export function mapGoogleEventToDbEvent(
   eventType: string | null;
   description: string | null;
   metadata: string;
-  syncSource: string;
+  source: string;
+  googleEventId: string | null;
+  googleCalendarId: string;
 } {
   // Extract date and time from Google event
   const start = googleEvent.start?.dateTime || googleEvent.start?.date;
@@ -292,6 +319,8 @@ export function mapGoogleEventToDbEvent(
     eventType: googleEvent.eventType || null,
     description: googleEvent.description || null,
     metadata,
-    syncSource: "google",
+    source: "google",
+    googleEventId: googleEvent.id ?? null,
+    googleCalendarId: googleEvent.organizer?.email || "primary",
   };
 }

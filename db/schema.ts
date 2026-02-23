@@ -113,6 +113,8 @@ export const events = sqliteTable("events", {
   source: text("source").default("local"), // "local" | "google"
   googleEventId: text("google_event_id"), // Google Calendar event ID
   googleCalendarId: text("google_calendar_id"), // Which Google Calendar it came from
+  completed: integer("completed", { mode: "boolean" }).default(false),
+  completedAt: integer("completed_at", { mode: "timestamp_ms" }),
   createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().default(sql`(unixepoch() * 1000)`),
 });
 

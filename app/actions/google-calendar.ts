@@ -2,9 +2,20 @@
 
 import { auth } from "@clerk/nextjs/server";
 import { db, events } from "@/lib/db";
-import { fetchCalendarEvents, mapGoogleEventToDbEvent } from "@/lib/google-calendar";
+import { fetchCalendarEvents, mapGoogleEventToDbEvent, getStoredTokens } from "@/lib/google-calendar";
 import { eq, and } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
+
+export async function isGoogleCalendarConnected(): Promise<boolean> {
+  try {
+    const { userId } = await auth();
+    if (!userId) return false;
+    const account = await getStoredTokens(userId);
+    return !!(account?.refreshToken);
+  } catch {
+    return false;
+  }
+}
 
 export async function syncGoogleCalendarOnce(accessToken: string) {
   const { userId } = await auth();
@@ -35,7 +46,21 @@ export async function syncGoogleCalendarOnce(accessToken: string) {
     let skippedCount = 0;
 
     for (const event of mappedEvents) {
-      // Check for duplicate by title, date, and time combination
+      // Prefer duplicate check by googleEventId if available
+      if (event.googleEventId) {
+        const byGoogleId = await db
+          .select()
+          .from(events)
+          .where(
+            and(eq(events.userId, userId), eq(events.googleEventId, event.googleEventId))
+          );
+        if (byGoogleId.length > 0) {
+          skippedCount++;
+          continue;
+        }
+      }
+
+      // Fallback: check by title, date, and time
       const existingEvents = await db
         .select()
         .from(events)
@@ -47,15 +72,10 @@ export async function syncGoogleCalendarOnce(accessToken: string) {
           )
         );
 
-      // Check for duplicate: same title and date is always a duplicate
-      // If both have times, they must also match
       const isDuplicate = existingEvents.some((existing: typeof events.$inferSelect) => {
-        // If both have times, check if they match
         if (event.eventTime && existing.eventTime) {
           return existing.eventTime === event.eventTime;
         }
-        // If at least one doesn't have time, consider title + date match as duplicate
-        // This prevents creating multiple all-day events or mixing timed/all-day events
         return true;
       });
 

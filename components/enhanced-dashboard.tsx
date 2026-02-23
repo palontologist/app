@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import Link from "next/link"
-import { Target, BarChart3, Plus, Lightbulb, Globe, Sparkles, User, Calendar, ListTodo, Activity, CalendarPlus } from "lucide-react"
+import { Target, BarChart3, Plus, Lightbulb, Globe, Sparkles, User, Calendar, ListTodo, Activity, CalendarPlus, Check } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
@@ -21,7 +21,7 @@ import { getUser } from "@/app/actions/user"
 import { generateDashboardSummary, getCachedDashboardSummary } from "@/app/actions/analytics"
 import { generateDailyAlignmentReport } from "@/lib/ai"
 import type { Task as TaskType, Goal as GoalType, User as UserType } from "@/lib/types"
-import { createEvent, getEvents } from "@/app/actions/events"
+import { createEvent, getEvents, toggleEventCompletion } from "@/app/actions/events"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { GoogleCalendarButton } from "@/components/google-calendar-button"
 import { AICalendarSuggestions } from "@/components/ai-calendar-suggestions"
@@ -210,6 +210,14 @@ export default function EnhancedDashboard() {
       // Regenerate and persist fresh summary after task change
       const fresh = await generateDashboardSummary()
       if (fresh.success) setAlignmentSummary(fresh.summary)
+    }
+  }
+
+  const handleToggleEvent = async (eventId: string) => {
+    const result = await toggleEventCompletion(eventId)
+    if (result.success) {
+      const eventsResult = await getEvents()
+      if (eventsResult.success) setEvents(eventsResult.events || [])
     }
   }
 
@@ -582,12 +590,33 @@ export default function EnhancedDashboard() {
           {getUpcomingEvents().length > 0 ? (
             <div className="space-y-3">
               {getUpcomingEvents().map((event) => (
-                <div key={event.id} className="flex items-center justify-between p-3 rounded-lg border">
-                  <div>
-                    <h3 className="font-medium text-sm">{event.title}</h3>
-                    {event.description && <p className="text-xs text-[#6B7280] mt-1">{event.description}</p>}
+                <div
+                  key={event.id}
+                  className={`flex items-center justify-between gap-3 p-3 rounded-lg border ${event.completed ? "opacity-60 bg-gray-50" : ""}`}
+                >
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 shrink-0"
+                    onClick={() => handleToggleEvent(event.id)}
+                  >
+                    <div
+                      className={`h-5 w-5 rounded border-2 flex items-center justify-center ${
+                        event.completed ? "bg-[#28A745] border-[#28A745]" : "border-gray-300"
+                      }`}
+                    >
+                      {event.completed && <Check className="h-3 w-3 text-white" />}
+                    </div>
+                  </Button>
+                  <div className="min-w-0 flex-1">
+                    <h3 className={`font-medium text-sm ${event.completed ? "line-through text-gray-500" : ""}`}>
+                      {event.title}
+                    </h3>
+                    {event.description && (
+                      <p className="text-xs text-[#6B7280] mt-1 truncate">{event.description}</p>
+                    )}
                   </div>
-                  <div className="text-right">
+                  <div className="text-right shrink-0">
                     <div className="text-xs text-[#6B7280]">{new Date(event.event_date).toLocaleDateString()}</div>
                     {event.event_time && <div className="text-xs text-[#6B7280]">{event.event_time}</div>}
                   </div>

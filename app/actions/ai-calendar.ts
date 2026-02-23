@@ -141,7 +141,7 @@ export async function createEventFromSuggestion(suggestion: {
       eventTime,
       description: suggestion.description,
       metadata,
-      syncSource: "manual", // Will be updated to "google" if Google sync succeeds
+      source: "local",
     }).returning();
 
     // Try to create in Google Calendar if user has connected account
@@ -167,7 +167,9 @@ export async function createEventFromSuggestion(suggestion: {
           await db
             .update(events)
             .set({
-              syncSource: "google",
+              source: "google",
+              googleEventId: googleEvent.id,
+              googleCalendarId: "primary",
               metadata: updatedMetadata,
             })
             .where(eq(events.id, newEvent[0].id));
