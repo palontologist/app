@@ -1,4 +1,4 @@
--- Add value tracking tables for Greta dashboard
+-- SQLite migration for value tracking tables
 -- Clients/projects tracking
 CREATE TABLE IF NOT EXISTS clients (
   id INTEGER PRIMARY KEY AUTOINCREMENT,

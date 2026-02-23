@@ -191,3 +191,92 @@ export const alignmentHistory = sqliteTable("alignment_history", {
   aiInsightsSummary: text("ai_insights_summary"),
   createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().default(sql`(unixepoch() * 1000)`),
 });
+
+// Clients/Projects table
+export const clients = sqliteTable("clients", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  userId: text("user_id").notNull(),
+  workspaceId: integer("workspace_id"), // For team/startup workspace
+  name: text("name").notNull(),
+  email: text("email"),
+  hourlyRate: integer("hourly_rate"), // in cents
+  targetHourlyRate: integer("target_hourly_rate"), // in cents
+  retainerAmount: integer("retainer_amount"), // in cents
+  paymentStatus: text("payment_status").default("active"), // "active" | "paused" | "inactive"
+  notes: text("notes"),
+  createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().default(sql`(unixepoch() * 1000)`),
+  updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull().default(sql`(unixepoch() * 1000)`),
+});
+
+// Time entries (derived from calendar events or manual entry)
+export const timeEntries = sqliteTable("time_entries", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  userId: text("user_id").notNull(),
+  eventId: integer("event_id"), // FK to events table
+  clientId: integer("client_id"), // FK to clients table
+  projectTag: text("project_tag"), // e.g., "Website redesign", "Onboarding flow"
+  activityType: text("activity_type"), // "product" | "sales" | "ops" | "fundraising" | "support" | "other"
+  durationMinutes: integer("duration_minutes").notNull(),
+  billable: integer("billable", { mode: "boolean" }).default(true),
+  invoiced: integer("invoiced", { mode: "boolean" }).default(false),
+  entryDate: integer("entry_date", { mode: "timestamp_ms" }).notNull(),
+  createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().default(sql`(unixepoch() * 1000)`),
+});
+
+// Payments received
+export const payments = sqliteTable("payments", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  userId: text("user_id").notNull(),
+  clientId: integer("client_id"), // FK to clients table
+  amount: integer("amount").notNull(), // in cents
+  currency: text("currency").default("USD"),
+  paymentDate: integer("payment_date", { mode: "timestamp_ms" }).notNull(),
+  paymentMethod: text("payment_method"), // "stripe" | "paypal" | "bank_transfer" | "cash" | "other"
+  invoiceId: text("invoice_id"),
+  description: text("description"),
+  metadata: text("metadata"), // JSON string
+  createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().default(sql`(unixepoch() * 1000)`),
+});
+
+// Equity/Founder Bets tracking
+export const equityBets = sqliteTable("equity_bets", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  userId: text("user_id").notNull(),
+  workspaceId: integer("workspace_id"), // For startup workspace
+  companyName: text("company_name").notNull(),
+  equityPercentage: integer("equity_percentage"), // stored as basis points (100 = 1%)
+  estimatedValuation: integer("estimated_valuation"), // in cents
+  status: text("status").default("active"), // "active" | "exited" | "failed" | "paused"
+  notes: text("notes"),
+  createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().default(sql`(unixepoch() * 1000)`),
+  updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull().default(sql`(unixepoch() * 1000)`),
+});
+
+// Invoice line items suggestions
+export const invoiceLineItems = sqliteTable("invoice_line_items", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  userId: text("user_id").notNull(),
+  clientId: integer("client_id"), // FK to clients table
+  invoiceId: text("invoice_id"),
+  description: text("description").notNull(),
+  durationMinutes: integer("duration_minutes"),
+  rate: integer("rate"), // in cents, hourly rate used
+  amount: integer("amount").notNull(), // in cents
+  status: text("status").default("draft"), // "draft" | "invoiced" | "paid"
+  createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().default(sql`(unixepoch() * 1000)`),
+});
+
+// Revenue impact tracking (MRR, ARR, etc.)
+export const revenueImpact = sqliteTable("revenue_impact", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  userId: text("user_id").notNull(),
+  clientId: integer("client_id"), // FK to clients table
+  date: text("date").notNull(), // YYYY-MM-DD
+  mrr: integer("mrr"), // Monthly Recurring Revenue in cents
+  arr: integer("arr"), // Annual Recurring Revenue in cents
+  totalRevenue: integer("total_revenue"), // in cents
+  hoursTracked: integer("hours_tracked"),
+  effectiveHourlyRate: integer("effective_hourly_rate"), // in cents
+  metadata: text("metadata"), // JSON string
+  createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().default(sql`(unixepoch() * 1000)`),
+});
