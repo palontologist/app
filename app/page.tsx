@@ -319,7 +319,7 @@ export default async function LandingPage() {
 
       {/* Footer */}
       <footer className="border-t border-border px-6 py-8 sm:px-8 text-center text-sm text-muted-foreground">
-        <p>© 2024 Greta. Built for value-driven builders.</p>
+        <p>© 2026 Greta. Built for value-driven builders.</p>
       </footer>
     </main>
   )
