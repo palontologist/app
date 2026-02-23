@@ -54,9 +54,7 @@ export default async function LandingPage() {
                     <ArrowRight className="ml-2 h-4 w-4" />
                   </Button>
                 </Link>
-                <Button variant="outline" size="lg" className="h-12 px-8">
-                  Watch 2-minute demo
-                </Button>
+
               </div>
               <p className="text-sm text-muted-foreground">
                 Built for solo builders, indie agencies, and early-stage teams.
