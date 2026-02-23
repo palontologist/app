@@ -230,36 +230,54 @@ export default async function LandingPage() {
       <section id="pricing" className="px-6 py-16 sm:px-8 sm:py-24">
         <div className="mx-auto max-w-7xl">
           <h2 className="text-4xl font-bold text-center mb-4">Simple pricing that respects your runway</h2>
-          <p className="text-center text-muted-foreground mb-16">Early users get lifetime discounts and direct input into the product roadmap.</p>
+          <p className="text-center text-muted-foreground mb-16">Founding users get these prices locked in for life.</p>
           <div className="grid gap-6 md:grid-cols-2 max-w-2xl mx-auto">
             <div className="rounded-2xl border border-border bg-white p-8">
-              <h3 className="text-2xl font-bold mb-2">Solo</h3>
-              <p className="text-muted-foreground mb-6">For freelancers/solo founders</p>
-              <ul className="space-y-2 mb-8">
-                <li className="text-sm text-muted-foreground flex items-center gap-2">
-                  <Check className="h-4 w-4 text-[#28A745]" />
-                  Track your value across 2 calendars
+              <div className="mb-6">
+                <h3 className="text-2xl font-bold">Solo</h3>
+                <p className="text-sm text-muted-foreground">For freelancers &amp; solo builders</p>
+              </div>
+              <div className="mb-6">
+                <div className="text-4xl font-bold">$19<span className="text-lg text-muted-foreground">/mo</span></div>
+              </div>
+              <ul className="space-y-3 mb-8">
+                <li className="text-sm text-muted-foreground flex items-start gap-2">
+                  <Check className="h-5 w-5 text-[#28A745] shrink-0 mt-0.5" />
+                  <span>Up to 5 active clients/projects</span>
                 </li>
-                <li className="text-sm text-muted-foreground flex items-center gap-2">
-                  <Check className="h-4 w-4 text-[#28A745]" />
-                  Connect 5 clients/projects
+                <li className="text-sm text-muted-foreground flex items-start gap-2">
+                  <Check className="h-5 w-5 text-[#28A745] shrink-0 mt-0.5" />
+                  <span>Calendar + payments mapping</span>
+                </li>
+                <li className="text-sm text-muted-foreground flex items-start gap-2">
+                  <Check className="h-5 w-5 text-[#28A745] shrink-0 mt-0.5" />
+                  <span>Underpriced client alerts</span>
                 </li>
               </ul>
               <Link href="/sign-in?redirect_url=/onboarding">
-                <Button className="w-full bg-[#28A745] hover:bg-[#23923d]">Join Solo beta</Button>
+                <Button className="w-full bg-[#28A745] hover:bg-[#23923d]">Get early access</Button>
               </Link>
             </div>
-            <div className="rounded-2xl border border-border bg-secondary/20 p-8">
-              <h3 className="text-2xl font-bold mb-2">Studio / Team</h3>
-              <p className="text-muted-foreground mb-6">Coming later</p>
-              <ul className="space-y-2 mb-8">
-                <li className="text-sm text-muted-foreground flex items-center gap-2">
-                  <Check className="h-4 w-4 text-[#28A745]" />
-                  Shared view across your team
+            <div className="rounded-2xl border-2 border-[#28A745] bg-white p-8 relative">
+              <div className="absolute -top-3 left-4 bg-white px-2">
+                <span className="text-xs font-semibold text-[#28A745]">COMING SOON</span>
+              </div>
+              <div className="mb-6">
+                <h3 className="text-2xl font-bold">Studio</h3>
+                <p className="text-sm text-muted-foreground">For small teams</p>
+              </div>
+              <div className="mb-6">
+                <div className="text-4xl font-bold">$49<span className="text-lg text-muted-foreground">/mo</span></div>
+                <p className="text-sm text-muted-foreground">+ $10/user</p>
+              </div>
+              <ul className="space-y-3 mb-8">
+                <li className="text-sm text-muted-foreground flex items-start gap-2">
+                  <Check className="h-5 w-5 text-[#28A745] shrink-0 mt-0.5" />
+                  <span>Shared dashboards across clients/projects</span>
                 </li>
-                <li className="text-sm text-muted-foreground flex items-center gap-2">
-                  <Check className="h-4 w-4 text-[#28A745]" />
-                  Multi-client workspace
+                <li className="text-sm text-muted-foreground flex items-start gap-2">
+                  <Check className="h-5 w-5 text-[#28A745] shrink-0 mt-0.5" />
+                  <span>Team time + value analytics</span>
                 </li>
               </ul>
               <Button variant="outline" className="w-full">Join waitlist</Button>
