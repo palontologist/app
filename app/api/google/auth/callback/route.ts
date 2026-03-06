@@ -33,6 +33,12 @@ export async function GET(req: NextRequest) {
       const client = createOAuthClient()
       console.log('Google auth callback: Exchanging code for tokens')
       const { tokens } = await client.getToken(code)
+      
+      if (!tokens) {
+        console.error('Google auth callback: No tokens received from Google')
+        return NextResponse.redirect(new URL('/profile?google_error=no_tokens', process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'))
+      }
+      
       client.setCredentials(tokens)
 
       console.log('Google auth callback: Tokens received, checking for ID token')
