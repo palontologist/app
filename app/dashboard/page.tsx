@@ -2,7 +2,8 @@ import { auth } from "@clerk/nextjs/server"
 import { redirect } from "next/navigation"
 import { db, userProfiles } from "@/lib/db"
 import { eq } from "drizzle-orm"
-import { ValueDashboard } from "@/components/value-dashboard"
+import { AppShell } from "@/components/app-shell"
+import EnhancedDashboard from "@/components/enhanced-dashboard"
 
 export default async function DashboardPage() {
   const { userId } = await auth()
@@ -18,10 +19,8 @@ export default async function DashboardPage() {
   }
   
   return (
-    <main>
-      <ValueDashboard userProfile={{
-        workspaceType: (rows[0]?.currentWorkspaceType as 'personal' | 'startup') || 'personal'
-      }} />
-    </main>
+    <AppShell>
+      <EnhancedDashboard />
+    </AppShell>
   )
 }

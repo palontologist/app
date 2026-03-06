@@ -3,6 +3,7 @@ import { GeistSans } from 'geist/font/sans'
 import { GeistMono } from 'geist/font/mono'
 import './globals.css'
 import ClerkProviderWrapper from '@/components/clerk-provider-wrapper'
+import { ThemeProvider } from '@/components/theme-provider'
 
 
 export const metadata: Metadata = {
@@ -20,7 +21,7 @@ export default function RootLayout({
 
   return (
     <ClerkProviderWrapper publishableKey={publishableKey}>
-      <html lang="en">
+      <html lang="en" suppressHydrationWarning>
         <head>
         <style>{`
 html {
@@ -31,7 +32,14 @@ html {
         `}</style>
         </head>
         <body>
-          {children}
+          <ThemeProvider
+            attribute="class"
+            defaultTheme="system"
+            enableSystem
+            disableTransitionOnChange
+          >
+            {children}
+          </ThemeProvider>
         </body>
       </html>
     </ClerkProviderWrapper>
