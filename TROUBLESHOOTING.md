@@ -81,3 +81,24 @@ TURSO_DATABASE_URL=libsql://...
 TURSO_AUTH_TOKEN=...
 GROQ_API_KEY=gsk_...
 ```
+
+---
+
+## 5. Clerk Error 1016 (Cloudflare Origin DNS error)
+
+**Symptom:** Clerk pages fail with a Cloudflare message referencing `*.clerk.accounts.dev` and `Error 1016`.
+
+**Cause:** Your app is usually using Clerk keys tied to an instance domain that no longer resolves.
+
+**Fix:**
+1. Open Clerk Dashboard and verify the active instance.
+2. Copy fresh keys from that instance:
+   - `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`
+   - `CLERK_SECRET_KEY`
+3. Update local and hosted environment variables.
+4. Restart local dev server and redeploy.
+5. If still failing, create a new Clerk development instance and update keys again.
+
+**Next runtime file naming:**
+- Next.js 16 and newer: use `proxy.ts`
+- Next.js 15 and older: use `middleware.ts`
