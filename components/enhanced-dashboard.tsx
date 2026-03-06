@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import Link from "next/link"
-import { Target, BarChart3, Plus, Lightbulb, Globe, Sparkles, User, Calendar, ListTodo, Activity, CalendarPlus, Check } from "lucide-react"
+import { Target, BarChart3, Plus, Lightbulb, Globe, Sparkles, User, Calendar, ListTodo, Activity, CalendarPlus, Check, DollarSign, TrendingUp, Clock, CheckCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
@@ -25,6 +25,8 @@ import { createEvent, getEvents, toggleEventCompletion } from "@/app/actions/eve
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { GoogleCalendarButton } from "@/components/google-calendar-button"
 import { AICalendarSuggestions } from "@/components/ai-calendar-suggestions"
+import { CoachCard } from "@/components/coach-card"
+import { getValueSummary } from "@/app/actions/value"
 
 interface ApiGoalType {
   id: number
@@ -55,6 +57,7 @@ export default function EnhancedDashboard() {
   const fabRef = React.useRef<HTMLDivElement | null>(null)
   const [tasksView, setTasksView] = React.useState<"active" | "completed">("active")
   const [goalsView, setGoalsView] = React.useState<"active" | "completed">("active")
+  const [valueSummary, setValueSummary] = React.useState<any>(null)
 
   React.useEffect(() => {
     loadData()
@@ -76,7 +79,7 @@ export default function EnhancedDashboard() {
   const loadData = async () => {
     setLoading(true)
     try {
-      const [tasksResult, goalsResult, userResult, eventsResult] = await Promise.all([getTasks(), getGoals(), getUser(), getEvents()])
+      const [tasksResult, goalsResult, userResult, eventsResult, valueResult] = await Promise.all([getTasks(), getGoals(), getUser(), getEvents(), getValueSummary()])
 
       if (tasksResult.success) {
         console.log("Tasks loaded:", tasksResult.tasks)
@@ -162,6 +165,10 @@ export default function EnhancedDashboard() {
       if (eventsResult && eventsResult.success) {
         setEvents(eventsResult.events)
       }
+
+      if (valueResult && valueResult.success && valueResult.summary) {
+        setValueSummary(valueResult.summary)
+      }
     } catch (error) {
       console.error("Failed to load data:", error)
     } finally {
@@ -206,7 +213,7 @@ export default function EnhancedDashboard() {
         user_id: Number(result.task.user_id)
       };
       
-      setTasks((prev) => prev.map((t) => (t.id === taskId ? updatedTask as TaskType : t)))
+      setTasks((prev) => prev.map((t) => (t.id === taskId ? updatedTask as unknown as TaskType : t)))
       // Regenerate and persist fresh summary after task change
       const fresh = await generateDashboardSummary()
       if (fresh.success) setAlignmentSummary(fresh.summary)
@@ -287,33 +294,6 @@ export default function EnhancedDashboard() {
 
   return (
     <div className="mx-auto max-w-2xl px-4 pb-28 pt-6 sm:pt-8">
-      <header className="mb-6 flex items-center justify-between">
-        <div className="font-semibold tracking-tight text-xl">greta</div>
-        <nav className="flex items-center gap-3">
-          <Link
-            href="/profile"
-            className="inline-flex h-9 items-center justify-center rounded-md border bg-background px-3 text-sm hover:bg-accent hover:text-accent-foreground"
-            aria-label="View Profile"
-          >
-            <User className="h-4 w-4" />
-          </Link>
-          <Link
-            href="/analytics"
-            className="inline-flex h-9 items-center justify-center rounded-md border bg-background px-3 text-sm hover:bg-accent hover:text-accent-foreground"
-            aria-label="Open Analytics"
-          >
-            <BarChart3 className="h-4 w-4" />
-          </Link>
-          <Link
-            href="/history"
-            className="inline-flex h-9 items-center justify-center rounded-md border bg-background px-3 text-sm hover:bg-accent hover:text-accent-foreground"
-            aria-label="Open History"
-          >
-            History
-          </Link>
-        </nav>
-      </header>
-
       {/* North Star */}
       <Card className="mb-4">
         <CardHeader className="pb-3">
@@ -323,7 +303,7 @@ export default function EnhancedDashboard() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-sm text-[#111827]">
+          <p className="text-sm text-foreground">
             {user?.mission || "Define your mission to get started"}
           </p>
         </CardContent>
@@ -662,6 +642,57 @@ export default function EnhancedDashboard() {
           )}
         </CardContent>
       </Card>
+
+      {/* Revenue Snapshot */}
+      <Card className="mt-6">
+        <CardHeader className="pb-3 flex flex-row items-center justify-between">
+          <CardTitle className="flex items-center gap-2 text-base font-medium">
+            <DollarSign className="h-4 w-4 text-[#28A745]" />
+            Revenue Snapshot
+          </CardTitle>
+          <Button asChild size="sm" variant="outline" className="text-[#28A745] border-[#28A745] hover:bg-[#28A745] hover:text-white">
+            <Link href="/value">Value OS →</Link>
+          </Button>
+        </CardHeader>
+        <CardContent>
+          {valueSummary ? (
+            <div className="grid grid-cols-3 gap-4">
+              <div className="text-center">
+                <p className="text-xs text-muted-foreground">This Week</p>
+                <p className="text-lg font-bold">${valueSummary.weekRevenue.toLocaleString()}</p>
+              </div>
+              <div className="text-center">
+                <p className="text-xs text-muted-foreground">Eff. Rate</p>
+                <p className="text-lg font-bold">
+                  {valueSummary.effectiveRate > 0 ? `$${valueSummary.effectiveRate}/hr` : "—"}
+                </p>
+              </div>
+              <div className="text-center">
+                <p className="text-xs text-muted-foreground">Equity Value</p>
+                <p className="text-lg font-bold">
+                  {valueSummary.totalEquityValue > 0
+                    ? `$${Math.round(valueSummary.totalEquityValue / 1000)}k`
+                    : "—"}
+                </p>
+              </div>
+            </div>
+          ) : (
+            <div className="text-center py-4">
+              <p className="text-sm text-muted-foreground">
+                No revenue data yet.{" "}
+                <Link href="/value" className="text-[#28A745] hover:underline">
+                  Set up Value OS →
+                </Link>
+              </p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* AI Coach Section */}
+      <div className="mt-6">
+        <CoachCard />
+      </div>
 
       {/* Smart FAB Dropdown (click to open, stable on hover) */}
       <div className="fixed bottom-24 right-6 z-20 sm:bottom-8" ref={fabRef}>

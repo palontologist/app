@@ -4,6 +4,7 @@ import { getUser } from "@/app/actions/user"
 import { getGoals } from "@/app/actions/goals"
 import { getTasks } from "@/app/actions/tasks"
 import ProfileContent from "@/components/profile-content"
+import { AppShell } from "@/components/app-shell"
 
 export default async function ProfilePage() {
   const session = await auth()
@@ -24,10 +25,12 @@ export default async function ProfilePage() {
   const tasks = tasksResult.success ? tasksResult.tasks : []
 
   return (
-    <ProfileContent 
-      user={userResult.user}
-      goals={goals.map((g: any) => ({ ...g, type: g.type || g.category === 'personal' ? 'personal' : 'startup' }))}
-      tasks={tasks}
-    />
+    <AppShell>
+      <ProfileContent 
+        user={userResult.user}
+        goals={goals.map((g: any) => ({ ...g, type: g.type || g.category === 'personal' ? 'personal' : 'startup' }))}
+        tasks={tasks}
+      />
+    </AppShell>
   )
 }

@@ -1,12 +1,10 @@
-import { Inter } from "next/font/google"
 import ImpactPage from "@/components/impact-page"
-
-const inter = Inter({ subsets: ["latin"] })
+import { AppShell } from "@/components/app-shell"
 
 export default function Page() {
   return (
-    <main className={inter.className}>
+    <AppShell>
       <ImpactPage />
-    </main>
+    </AppShell>
   )
 }
