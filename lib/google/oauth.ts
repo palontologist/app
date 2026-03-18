@@ -18,7 +18,7 @@ export function createOAuthClient(): OAuth2Client {
   return new google.auth.OAuth2(GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REDIRECT_URI)
 }
 
-export function getAuthUrl(scopes?: string[]): string {
+export function getAuthUrl(scopes?: string[], state?: string): string {
   const client = createOAuthClient()
   const finalScopes = scopes && scopes.length > 0 ? scopes : [
     'openid',
@@ -33,6 +33,7 @@ export function getAuthUrl(scopes?: string[]): string {
     prompt: 'consent',
     include_granted_scopes: true,
     scope: finalScopes,
+    ...(state ? { state } : {}),
   })
 
   console.log('Google OAuth: Generated auth URL')

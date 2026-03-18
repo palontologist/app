@@ -205,7 +205,7 @@ export async function updateGoogleCalendarEvent(
 }
 
 // Generate authorization URL with calendar scopes
-export function generateAuthUrl(): string {
+export function generateAuthUrl(state?: string): string {
   const oauth2Client = getOAuth2Client();
 
   const scopes = [
@@ -217,6 +217,7 @@ export function generateAuthUrl(): string {
     access_type: "offline",
     scope: scopes,
     prompt: "consent", // Force consent to ensure we get a refresh token
+    ...(state ? { state } : {}),
   });
 
   return authUrl;

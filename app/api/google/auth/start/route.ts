@@ -6,13 +6,18 @@ export async function GET() {
   try {
     const session = await auth()
     if (!session.userId) {
-      console.log('Google auth start: No user session found, redirecting to sign-in')
-      return NextResponse.redirect(new URL('/sign-in', process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'))
+      return NextResponse.redirect(
+        new URL('/sign-in', process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000')
+      )
     }
 
     console.log('Google auth start: Generating auth URL for user', session.userId)
-    const url = getAuthUrl(defaultCalendarScopes)
-    console.log('Google auth start: Redirecting to', url)
+
+    // Encode userId as state so the callback can recover it across browsers
+    const state = Buffer.from(session.userId).toString('base64url')
+    const url = getAuthUrl(defaultCalendarScopes, state)
+
+    console.log('Google auth start: Redirecting to Google OAuth')
     return NextResponse.redirect(url)
   } catch (error) {
     console.error('Google auth start error:', error)
@@ -22,4 +27,3 @@ export async function GET() {
     )
   }
 }
-

@@ -96,6 +96,8 @@ export const tasks = sqliteTable("tasks", {
   completed: integer("completed", { mode: "boolean" }).default(false),
   completedAt: integer("completed_at", { mode: "timestamp_ms" }),
   aiAnalysis: text("ai_analysis"),
+  estimatedValueCents: integer("estimated_value_cents").default(0), // Greta-calculated value in cents
+  valueCategory: text("value_category"), // 'design'|'content'|'sales'|'strategic'|'other'
   createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().default(sql`(unixepoch() * 1000)`),
   updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull().default(sql`(unixepoch() * 1000)`),
 });
@@ -264,6 +266,18 @@ export const invoiceLineItems = sqliteTable("invoice_line_items", {
   amount: integer("amount").notNull(), // in cents
   status: text("status").default("draft"), // "draft" | "invoiced" | "paid"
   createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().default(sql`(unixepoch() * 1000)`),
+});
+
+// Value settings: per-category rates used by Greta to calculate task value
+export const valueSettings = sqliteTable("value_settings", {
+  userId: text("user_id").primaryKey(),
+  designRateCents: integer("design_rate_cents").default(20000),    // $200/task
+  contentRateCents: integer("content_rate_cents").default(18000),  // $180/task
+  salesRateCents: integer("sales_rate_cents").default(12000),      // $120/task
+  strategicRateCents: integer("strategic_rate_cents").default(13600), // $136/task (~2hr @ $68)
+  otherRateCents: integer("other_rate_cents").default(10000),      // $100/task
+  createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().default(sql`(unixepoch() * 1000)`),
+  updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull().default(sql`(unixepoch() * 1000)`),
 });
 
 // Revenue impact tracking (MRR, ARR, etc.)

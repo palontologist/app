@@ -1,36 +1,9 @@
 import { redirect } from "next/navigation"
 import { auth } from "@clerk/nextjs/server"
-import { getUser } from "@/app/actions/user"
-import { getGoals } from "@/app/actions/goals"
-import { getTasks } from "@/app/actions/tasks"
-import ProfileContent from "@/components/profile-content"
-import { AppShell } from "@/components/app-shell"
+import ProfileScreen from "@/components/profile-screen"
 
 export default async function ProfilePage() {
-  const session = await auth()
-  
-  if (!session.userId) {
-    redirect('/sign-in')
-  }
-
-  const userResult = await getUser()
-  const goalsResult = await getGoals()
-  const tasksResult = await getTasks()
-
-  if (!userResult.success || !userResult.user) {
-    redirect('/onboarding')
-  }
-
-  const goals = goalsResult.success ? goalsResult.goals : []
-  const tasks = tasksResult.success ? tasksResult.tasks : []
-
-  return (
-    <AppShell>
-      <ProfileContent 
-        user={userResult.user}
-        goals={goals.map((g: any) => ({ ...g, type: g.type || g.category === 'personal' ? 'personal' : 'startup' }))}
-        tasks={tasks}
-      />
-    </AppShell>
-  )
+  const { userId } = await auth()
+  if (!userId) redirect("/sign-in?redirect_url=/profile")
+  return <ProfileScreen />
 }

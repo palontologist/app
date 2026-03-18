@@ -3,169 +3,131 @@
 import * as React from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import {
-  LayoutDashboard,
-  Globe,
-  BarChart3,
-  DollarSign,
-  User,
-  Menu,
-  X,
-  MessageSquare,
-  Target,
-} from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { ThemeToggle } from "@/components/theme-toggle"
+import { useUser } from "@clerk/nextjs"
+import { Home, Target, TrendingUp, User } from "lucide-react"
 import { cn } from "@/lib/utils"
 
-const navItems = [
-  {
-    href: "/dashboard",
-    label: "Overview",
-    icon: LayoutDashboard,
-  },
-  {
-    href: "/impact",
-    label: "Impact",
-    icon: Globe,
-  },
-  {
-    href: "/analytics",
-    label: "Analytics",
-    icon: BarChart3,
-  },
-  {
-    href: "/value",
-    label: "Value",
-    icon: DollarSign,
-  },
-  {
-    href: "/coach",
-    label: "Coach",
-    icon: MessageSquare,
-  },
-  {
-    href: "/profile",
-    label: "Profile",
-    icon: User,
-  },
-]
-
-function NavLink({
-  href,
-  label,
-  icon: Icon,
-  active,
-  onClick,
-}: {
-  href: string
-  label: string
-  icon: React.ComponentType<{ className?: string }>
-  active: boolean
-  onClick?: () => void
-}) {
-  return (
-    <Link
-      href={href}
-      onClick={onClick}
-      className={cn(
-        "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
-        active
-          ? "bg-[#28A745]/10 text-[#28A745]"
-          : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-      )}
-    >
-      <Icon className="h-4 w-4 shrink-0" />
-      {label}
-    </Link>
-  )
-}
+const TABS = [
+  { href: "/dashboard", label: "Home",     Icon: Home },
+  { href: "/goals",     label: "Goals",    Icon: Target },
+  { href: "/progress",  label: "Progress", Icon: TrendingUp },
+  { href: "/profile",   label: "Profile",  Icon: User },
+] as const
 
 interface AppShellProps {
   children: React.ReactNode
+  /** Optional alignment score shown as badge in top nav (pass from page) */
+  alignmentScore?: number | null
 }
 
-export function AppShell({ children }: AppShellProps) {
+export function AppShell({ children, alignmentScore }: AppShellProps) {
   const pathname = usePathname()
-  const [mobileOpen, setMobileOpen] = React.useState(false)
+  const { user } = useUser()
 
-  const isActive = (item: (typeof navItems)[number]) => {
-    return pathname === item.href || pathname.startsWith(item.href + "/")
-  }
+  const initials = React.useMemo(() => {
+    const name = user?.fullName || user?.firstName || ""
+    return name
+      .split(" ")
+      .slice(0, 2)
+      .map((p) => p[0]?.toUpperCase() ?? "")
+      .join("") || "?"
+  }, [user])
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Desktop sidebar */}
-      <aside className="hidden lg:fixed lg:inset-y-0 lg:left-0 lg:flex lg:w-56 lg:flex-col lg:border-r lg:bg-background lg:z-30">
-        <div className="flex h-16 items-center border-b px-4">
-          <Link href="/dashboard" className="flex items-center gap-2">
-            <Target className="h-5 w-5 text-[#28A745]" />
-            <span className="text-lg font-bold">greta</span>
-          </Link>
+    <div className="flex flex-col min-h-screen bg-slate-50 lg:flex-row">
+      {/* ── Desktop sidebar (hidden on mobile) ── */}
+      <aside className="hidden lg:flex lg:flex-col lg:fixed lg:inset-y-0 lg:left-0 lg:w-56 lg:border-r lg:bg-white lg:z-30">
+        <div className="flex h-14 items-center gap-2 border-b px-4">
+          <div className="h-7 w-7 rounded-full bg-green-600 flex items-center justify-center">
+            <svg viewBox="0 0 14 14" fill="none" className="w-3.5 h-3.5">
+              <circle cx="7" cy="7" r="5" stroke="white" strokeWidth="1.5" />
+              <path d="M7 4v3l2 1" stroke="white" strokeWidth="1.3" strokeLinecap="round" />
+            </svg>
+          </div>
+          <span className="text-lg font-semibold tracking-tight">greta</span>
         </div>
-        <nav className="flex-1 space-y-1 overflow-y-auto px-2 py-4">
-          {navItems.map((item) => (
-            <NavLink
-              key={item.href}
-              href={item.href}
-              label={item.label}
-              icon={item.icon}
-              active={isActive(item)}
-            />
-          ))}
+        <nav className="flex-1 px-2 py-4 space-y-1">
+          {TABS.map(({ href, label, Icon }) => {
+            const active = pathname === href || pathname.startsWith(href + "/")
+            return (
+              <Link
+                key={href}
+                href={href}
+                className={cn(
+                  "flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-colors",
+                  active
+                    ? "bg-green-50 text-green-700"
+                    : "text-slate-500 hover:bg-slate-50 hover:text-slate-800"
+                )}
+              >
+                <Icon className="h-4 w-4 shrink-0" />
+                {label}
+              </Link>
+            )
+          })}
         </nav>
-        <div className="border-t p-4">
-          <ThemeToggle />
-        </div>
+        <div className="border-t p-4 text-xs text-slate-400 text-center">greta · mission aligned</div>
       </aside>
 
-      {/* Mobile header */}
-      <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b bg-background px-4 lg:hidden">
-        <Link href="/dashboard" className="flex items-center gap-2">
-          <Target className="h-5 w-5 text-[#28A745]" />
-          <span className="text-lg font-bold">greta</span>
-        </Link>
+      {/* ── Mobile top nav ── */}
+      <header className="lg:hidden sticky top-0 z-50 flex items-center justify-between px-5 py-3 bg-white/90 backdrop-blur-md border-b border-black/[0.06]">
         <div className="flex items-center gap-2">
-          <ThemeToggle />
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setMobileOpen((v) => !v)}
-            aria-label="Toggle menu"
-          >
-            {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-          </Button>
+          <div className="w-7 h-7 rounded-full bg-green-600 flex items-center justify-center">
+            <svg viewBox="0 0 14 14" fill="none" className="w-3.5 h-3.5">
+              <circle cx="7" cy="7" r="5" stroke="white" strokeWidth="1.5" />
+              <path d="M7 4v3l2 1" stroke="white" strokeWidth="1.3" strokeLinecap="round" />
+            </svg>
+          </div>
+          <span className="text-[17px] font-semibold tracking-tight text-slate-800">greta</span>
+        </div>
+        <div className="flex items-center gap-2">
+          {alignmentScore != null && (
+            <span className="text-[11px] font-semibold bg-green-100 text-green-700 px-2.5 py-0.5 rounded-full">
+              {alignmentScore}% aligned
+            </span>
+          )}
+          <div className="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center text-white text-xs font-semibold">
+            {initials}
+          </div>
         </div>
       </header>
 
-      {/* Mobile nav drawer */}
-      {mobileOpen && (
-        <div className="fixed inset-0 z-20 lg:hidden">
-          <div
-            className="absolute inset-0 bg-black/40"
-            onClick={() => setMobileOpen(false)}
-          />
-          <nav className="absolute left-0 top-14 bottom-0 w-64 bg-background border-r shadow-xl flex flex-col">
-            <div className="flex-1 space-y-1 overflow-y-auto px-2 py-4">
-              {navItems.map((item) => (
-                <NavLink
-                  key={item.href}
-                  href={item.href}
-                  label={item.label}
-                  icon={item.icon}
-                  active={isActive(item)}
-                  onClick={() => setMobileOpen(false)}
-                />
-              ))}
-            </div>
-          </nav>
-        </div>
-      )}
-
-      {/* Main content */}
-      <main className="lg:pl-56">
-        <div className="min-h-screen">{children}</div>
+      {/* ── Main content ── */}
+      <main className="flex-1 lg:pl-56 pb-20 lg:pb-0">
+        {children}
       </main>
+
+      {/* ── Mobile bottom tab bar ── */}
+      <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-50 flex bg-white/95 backdrop-blur-md border-t border-black/[0.06] px-2 pt-2.5 pb-5">
+        {TABS.map(({ href, label, Icon }) => {
+          const active = pathname === href || pathname.startsWith(href + "/")
+          return (
+            <Link
+              key={href}
+              href={href}
+              className={cn(
+                "flex-1 flex flex-col items-center gap-0.5 rounded-xl py-1 transition-colors",
+                active ? "" : "hover:bg-green-50/40"
+              )}
+            >
+              <Icon
+                className={cn(
+                  "h-5 w-5 transition-colors",
+                  active ? "text-green-600" : "text-slate-400"
+                )}
+              />
+              <span
+                className={cn(
+                  "text-[10px] transition-colors",
+                  active ? "text-green-600 font-semibold" : "text-slate-400"
+                )}
+              >
+                {label}
+              </span>
+            </Link>
+          )
+        })}
+      </nav>
     </div>
   )
 }
