@@ -66,7 +66,7 @@ Add to `.env.local` (or hosting secrets):
 TURSO_DATABASE_URL=libsql://...
 TURSO_AUTH_TOKEN=...
 
-CLERK_PUBLISHABLE_KEY=...
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=...
 CLERK_SECRET_KEY=...
 # Optional default org to invite into (else new org is created per invite or by form)
 CLERK_DEFAULT_ORG_ID=org_...
@@ -122,7 +122,32 @@ pnpm dev            # start local dev
 ## Permissions & Workspaces
 - Clerk Organizations are used to represent a shared startup workspace.
 - From Impact → Add Founder: invite by email to an existing org (`CLERK_DEFAULT_ORG_ID` or a provided org ID) or create a new org from the provided Workspace Name.
-- You can add gating based on organization membership in `middleware.ts`.
+- You can add gating based on organization membership in `proxy.ts`.
+
+## Clerk: Cloudflare 1016 (Origin DNS error)
+
+If you see an error like this while opening Clerk-hosted pages:
+
+```
+Error 1016
+Origin DNS error
+...clerk.accounts.dev
+```
+
+it usually means your app keys point to a Clerk development instance domain that is no longer resolvable.
+
+### Fix checklist
+1. In Clerk Dashboard, confirm your active instance is healthy.
+2. Regenerate/copy fresh keys from that instance:
+  - `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`
+  - `CLERK_SECRET_KEY`
+3. Replace values in `.env.local` and in your deployment environment.
+4. Restart your dev server and redeploy if needed.
+5. If DNS still fails, create a new Clerk dev instance and use its keys.
+
+### Next.js version note
+- Next.js 16+: use `proxy.ts`.
+- Next.js 15 and earlier: use `middleware.ts`.
 
 ## Commands
 ```bash
