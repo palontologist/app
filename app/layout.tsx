@@ -4,6 +4,7 @@ import { GeistMono } from 'geist/font/mono'
 import './globals.css'
 import ClerkProviderWrapper from '@/components/clerk-provider-wrapper'
 import { ThemeProvider } from '@/components/theme-provider'
+import { PostHogProvider } from '@/components/posthog-provider'
 
 
 export const metadata: Metadata = {
@@ -38,7 +39,9 @@ html {
             enableSystem
             disableTransitionOnChange
           >
-            {children}
+            <PostHogProvider>
+              {children}
+            </PostHogProvider>
           </ThemeProvider>
         </body>
       </html>
