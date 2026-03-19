@@ -113,30 +113,20 @@ Analyze alignment and respond with this exact JSON structure:
       temperature: 0.2,
     })
 
-    // Extract reasoning and JSON separately
     const reasoningMatch = text.match(/<Thinking>([\s\S]*?)<\/Thinking>/i)
     const reasoning = reasoningMatch ? reasoningMatch[1].trim() : null
 
-    // Clean the response to get just the JSON
     const cleanedText = text
-      .replace(/<Thinking>[\s\S]*?<\/Thinking>/gi, "") // Remove reasoning tokens
+      .replace(/<Thinking>[\s\S]*?<\/Thinking>/gi, "")
       .trim()
       .replace(/```json\n?/g, "")
       .replace(/```\n?/g, "")
-      .replace(/^[^{]*/, "") // Remove any text before the first \{
-      .replace(/[^}]*$/, "") // Remove any text after the last \}
+      .replace(/^[^{]*/, "")
+      .replace(/[^}]*$/, "")
 
-    try {
-      const result = JSON.parse(cleanedText)
-      // Add reasoning to the result if available
-      if (reasoning) {
-        result.ai_reasoning = reasoning
-      }
-      return result
-    } catch (parseError) {
-      console.error("JSON parse error, raw response:", text)
-      throw parseError
-    }
+    const result = JSON.parse(cleanedText) as any
+    if (reasoning) result.ai_reasoning = reasoning
+    return result
   } catch (error) {
     console.error("AI analysis failed:", error)
     return {
@@ -148,6 +138,137 @@ Analyze alignment and respond with this exact JSON structure:
       impact_statement: "This goal contributes to your mission by helping you achieve your objectives.",
     }
   }
+}
+
+export async function estimateTaskValueCents(input: {
+  title: string
+  description?: string
+  mission?: string
+  worldVision?: string
+  focusAreas?: string
+}): Promise<number> {
+  const prompt = `
+You are an AI assistant that estimates the real-world dollar value of completing a task for this specific user.
+Return ONLY valid JSON, no other text.
+
+User mission: "${input.mission || ""}"
+User vision: "${input.worldVision || ""}"
+User focus areas: "${input.focusAreas || ""}"
+
+Task title: "${input.title}"
+Task description: "${input.description || ""}"
+
+Rules:
+- Output dollars as an integer number of cents (estimated_value_cents).
+- If the task is clearly a distraction or low-leverage, output 0–2000 cents.
+- If it likely improves long-term opportunities, leverage, learning, health, or revenue, output a higher number.
+- Keep within 0 to 500000 cents.
+
+JSON schema:
+{
+  "estimated_value_cents": [integer 0..500000],
+  "reason": "[short reason]"
+}
+`
+
+  const { text } = await generateText({
+    model: groq("moonshotai/kimi-k2-instruct-0905"),
+    prompt,
+    temperature: 0.3,
+  })
+
+  const cleanedText = text
+    .replace(/<Thinking>[\s\S]*?<\/Thinking>/gi, "")
+    .replace(/```json\n?/g, "")
+    .replace(/```\n?/g, "")
+    .trim()
+    .replace(/^[^{]*/, "")
+    .replace(/[^}]*$/, "")
+
+  const obj = JSON.parse(cleanedText) as any
+  const centsRaw = Number(obj?.estimated_value_cents ?? obj?.estimatedValueCents ?? obj?.value_cents ?? 0)
+  const cents = Number.isFinite(centsRaw) ? Math.round(centsRaw) : 0
+  return Math.max(0, Math.min(500000, cents))
+}
+
+export async function analyzeGoalPriority(input: {
+  goalTitle: string
+  goalDescription?: string
+  goalCategory?: string | null
+  goalType?: string | null
+  targetValue?: number | null
+  currentValue?: number | null
+  unit?: string | null
+  deadlineIso?: string | null
+  mission?: string
+  worldVision?: string
+  focusAreas?: string
+  recentTaskTitles?: string[]
+  recentActivityTitles?: string[]
+}): Promise<{ priority_quadrant: "do" | "plan" | "delegate" | "drop"; priority_reason: string }> {
+  const prompt = `
+You are Greta, an AI that assigns goals into an Eisenhower-style priority matrix.
+Return ONLY valid JSON, no other text.
+
+User mission: "${input.mission || ""}"
+User vision: "${input.worldVision || ""}"
+User focus areas: "${input.focusAreas || ""}"
+
+Recent tasks: ${(input.recentTaskTitles || []).slice(0, 12).join(" | ")}
+Recent activities: ${(input.recentActivityTitles || []).slice(0, 12).join(" | ")}
+
+Goal:
+- title: "${input.goalTitle}"
+- description: "${input.goalDescription || ""}"
+- category: "${input.goalCategory || ""}"
+- type: "${input.goalType || ""}"
+- progress: ${(input.currentValue ?? 0)} / ${(input.targetValue ?? "")} ${input.unit || ""}
+- deadline (ISO, empty if none): "${input.deadlineIso || ""}"
+
+Choose exactly one:
+- "do": do first (urgent and/or high-leverage now)
+- "plan": schedule (important, not urgent)
+- "delegate": delegate (lower leverage for this user; can be outsourced/automated)
+- "drop": drop/defer (distraction or not aligned now)
+
+Rules:
+- Prefer "plan" over "do" unless there's a real urgency or a strong reason it's the highest leverage now.
+- If it conflicts with mission/vision or is a distraction, use "drop".
+- Keep the reason short (<= 140 chars), actionable.
+
+JSON schema:
+{
+  "priority_quadrant": "[do|plan|delegate|drop]",
+  "priority_reason": "[short reason]"
+}
+`
+
+  const { text } = await generateText({
+    model: groq("moonshotai/kimi-k2-instruct-0905"),
+    prompt,
+    temperature: 0.2,
+  })
+
+  const cleanedText = text
+    .replace(/<Thinking>[\s\S]*?<\/Thinking>/gi, "")
+    .replace(/```json\n?/g, "")
+    .replace(/```\n?/g, "")
+    .trim()
+    .replace(/^[^{]*/, "")
+    .replace(/[^}]*$/, "")
+
+  const obj = JSON.parse(cleanedText) as any
+  const q = String(obj?.priority_quadrant || obj?.priorityQuadrant || "").toLowerCase()
+  const quadrant =
+    q === "do" ? "do" :
+    q === "plan" ? "plan" :
+    q === "delegate" ? "delegate" :
+    q === "drop" ? "drop" :
+    "plan"
+
+  const reasonRaw = String(obj?.priority_reason || obj?.priorityReason || "Scheduled for steady progress.")
+  const reason = reasonRaw.length > 140 ? reasonRaw.slice(0, 140) : reasonRaw
+  return { priority_quadrant: quadrant, priority_reason: reason }
 }
 
 export async function generatePersonalizedInsights(tasks: Task[], userMission: string) {

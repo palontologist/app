@@ -1,8 +1,8 @@
 "use server"
 
 import { auth } from "@clerk/nextjs/server"
-import { generateObject } from "ai"
 import { groq } from "@ai-sdk/groq"
+import { generateText } from "ai"
 import { z } from "zod"
 import { getUser } from "@/app/actions/user"
 import { getTasks } from "@/app/actions/tasks"
@@ -11,11 +11,11 @@ import { getValueSettings } from "@/app/actions/value-settings"
 import { DEFAULT_RATES } from "@/lib/value"
 
 const SuggestionSchema = z.object({
-  taskId: z.number(),
-  reason: z.string().max(120).describe("One sentence: why this task is the best next move"),
-  estimatedValueDollars: z.number().describe("Estimated dollar value of completing this task"),
-  valueReason: z.string().max(80).describe("Short phrase explaining the value: e.g. 'Based on your rate · sales category · mission weight'"),
-  priorityLabel: z.string().max(30).describe("e.g. 'Urgent · High impact'"),
+  taskId: z.coerce.number(),
+  reason: z.string().describe("One sentence: why this task is the best next move"),
+  estimatedValueDollars: z.coerce.number().describe("Estimated dollar value of completing this task"),
+  valueReason: z.string().describe("Short phrase explaining the value"),
+  priorityLabel: z.string().describe("e.g. 'Urgent · High impact'"),
 })
 
 export type AISuggestion = z.infer<typeof SuggestionSchema>
@@ -79,12 +79,58 @@ ${taskList.map((t) => `ID ${t.id}: "${t.title}" | alignment: ${t.alignmentScore}
 
 Pick the single best next task to complete.`
 
-    const result = await generateObject({
-      model: groq("llama-3.3-70b-versatile"),
-      schema: SuggestionSchema,
+    const { text } = await generateText({
+      model: groq("moonshotai/kimi-k2-instruct-0905"),
       system: systemPrompt,
       prompt,
+      temperature: 0.2,
     })
+
+    const cleanedText = text
+      .replace(/<Thinking>[\s\S]*?<\/Thinking>/gi, "")
+      .trim()
+      .replace(/```json\n?/g, "")
+      .replace(/```\n?/g, "")
+      .replace(/^[^{]*/, "")
+      .replace(/[^}]*$/, "")
+
+    let parsed = SuggestionSchema.safeParse(JSON.parse(cleanedText))
+    if (!parsed.success) {
+      // Fallback path for common model drift:
+      // - task id returned as "ID 123" text
+      // - fields slightly renamed
+      // - missing numeric estimate
+      const obj = JSON.parse(cleanedText) as any
+      const fallbackTaskId =
+        Number(obj?.taskId) ||
+        Number(obj?.id) ||
+        Number(String(obj?.task || "").match(/\d+/)?.[0]) ||
+        null
+
+      const fallback = {
+        taskId: fallbackTaskId ?? taskList[0].id,
+        reason: String(obj?.reason ?? obj?.why ?? "This task best matches your current goals and alignment."),
+        estimatedValueDollars: Number(obj?.estimatedValueDollars ?? obj?.value ?? 100),
+        valueReason: String(obj?.valueReason ?? obj?.value_reason ?? "Estimated from your value settings and alignment."),
+        priorityLabel: String(obj?.priorityLabel ?? obj?.priority ?? "High impact"),
+      }
+      parsed = SuggestionSchema.safeParse(fallback)
+      if (!parsed.success) {
+        // Final deterministic fallback: highest alignment task
+        const fallbackTask = [...taskList].sort((a, b) => b.alignmentScore - a.alignmentScore)[0]
+        return {
+          success: true,
+          suggestion: {
+            taskId: fallbackTask.id,
+            reason: "This task has the strongest alignment score and should be completed next.",
+            estimatedValueDollars: 120,
+            valueReason: "Estimated from your configured rates and alignment.",
+            priorityLabel: "High alignment",
+          },
+        }
+      }
+    }
+    const result = { object: parsed.data }
 
     // Validate the taskId exists in our list
     const validIds = taskList.map((t) => t.id)

@@ -19,18 +19,45 @@ const float32Array = customType<{
 });
 
 // User profile table to store onboarding data keyed by Clerk user id
-export const userProfiles = sqliteTable("user_profiles", {
-  userId: text("user_id").primaryKey(), // Clerk user id
-  name: text("name"),
-  mission: text("mission"),
-  worldVision: text("world_vision"),
-  focusAreas: text("focus_areas"),
-  onboarded: integer("onboarded", { mode: "boolean" }).default(false),
-  currentWorkspaceType: text("current_workspace_type").default("personal"), // "personal" | "startup"
-  defaultOrganizationId: text("default_organization_id"), // Clerk org ID for startup workspace
-  createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().default(sql`(unixepoch() * 1000)`),
-  updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull().default(sql`(unixepoch() * 1000)`),
-});
+export const userProfiles = sqliteTable(
+  "user_profiles",
+  {
+    userId: text("user_id").primaryKey(), // Clerk user id
+    name: text("name"),
+    mission: text("mission"),
+    worldVision: text("world_vision"),
+    focusAreas: text("focus_areas"),
+    // Social layer (public profile + discovery)
+    handle: text("handle"), // unique-ish username, nullable until set
+    bio: text("bio"),
+    discoverable: integer("discoverable", { mode: "boolean" }).default(true),
+    // Privacy-friendly location (store coarse geohash, not raw coordinates by default)
+    locationSharingEnabled: integer("location_sharing_enabled", { mode: "boolean" }).default(false),
+    locationGeohash5: text("location_geohash5"), // 5-char geohash (~4.9km x 4.9km)
+    locationUpdatedAt: integer("location_updated_at", { mode: "timestamp_ms" }),
+    onboarded: integer("onboarded", { mode: "boolean" }).default(false),
+    currentWorkspaceType: text("current_workspace_type").default("personal"), // "personal" | "startup"
+    defaultOrganizationId: text("default_organization_id"), // Clerk org ID for startup workspace
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().default(sql`(unixepoch() * 1000)`),
+    updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull().default(sql`(unixepoch() * 1000)`),
+  },
+  (table) => ({
+    handleUnique: uniqueIndex("user_profiles_handle_unique").on(table.handle),
+  })
+);
+
+// Social graph: following relationships
+export const userFollows = sqliteTable(
+  "user_follows",
+  {
+    followerId: text("follower_id").notNull(), // Clerk user id
+    followingId: text("following_id").notNull(), // Clerk user id
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().default(sql`(unixepoch() * 1000)`),
+  },
+  (table) => ({
+    pairUnique: uniqueIndex("user_follows_follower_following_unique").on(table.followerId, table.followingId),
+  })
+);
 
 // Workspaces table to track team workspaces
 export const workspaces = sqliteTable("workspaces", {
@@ -73,6 +100,16 @@ export const goals = sqliteTable("goals", {
   description: text("description"),
   category: text("category"),
   goalType: text("goal_type"),
+  // AI + impact fields (used in app/actions/goals.ts)
+  alignmentScore: integer("alignment_score"),
+  alignmentCategory: text("alignment_category"),
+  missionPillar: text("mission_pillar"),
+  impactStatement: text("impact_statement"),
+  aiSuggestions: text("ai_suggestions"), // JSON string or free text
+  // AI priority matrix (Do / Schedule / Delegate / Drop)
+  priorityQuadrant: text("priority_quadrant"), // "do" | "plan" | "delegate" | "drop"
+  priorityReason: text("priority_reason"),
+  priorityUpdatedAt: integer("priority_updated_at", { mode: "timestamp_ms" }),
   currentValue: integer("current_value").default(0),
   targetValue: integer("target_value"),
   unit: text("unit"),
@@ -139,9 +176,52 @@ export const goalActivities = sqliteTable("goal_activities", {
   title: text("title").notNull(),
   progressValue: integer("progress_value").default(0),
   completed: integer("completed", { mode: "boolean" }).default(false),
+  completedAt: integer("completed_at", { mode: "timestamp_ms" }),
+  // Feed fields (snapshot at completion time)
+  visibility: text("visibility").default("followers"), // "private" | "followers" | "public"
+  completedGeohash5: text("completed_geohash5"),
   createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().default(sql`(unixepoch() * 1000)`),
   updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull().default(sql`(unixepoch() * 1000)`),
 });
+
+// Opportunities users can unlock (networking, jobs, groups, events)
+export const opportunities = sqliteTable("opportunities", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  type: text("type").notNull(), // "group" | "job" | "event" | "mentor" | "other"
+  title: text("title").notNull(),
+  description: text("description"),
+  url: text("url"),
+  // Optional: tie to a coarse region so we can show "nearby opportunities"
+  geohash5: text("geohash5"),
+  active: integer("active", { mode: "boolean" }).default(true),
+  createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().default(sql`(unixepoch() * 1000)`),
+});
+
+// Unlock rules for opportunities (simple, rules-based MVP)
+export const opportunityUnlockRules = sqliteTable("opportunity_unlock_rules", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  opportunityId: integer("opportunity_id").notNull(),
+  metric: text("metric").notNull(), // "activity_completions" | "goal_completions" | "streak_days"
+  threshold: integer("threshold").notNull(),
+  windowDays: integer("window_days"), // null = lifetime
+  // Optional filters (keep flexible as text)
+  goalCategory: text("goal_category"),
+  activityTitle: text("activity_title"),
+  createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().default(sql`(unixepoch() * 1000)`),
+});
+
+// Materialized unlocks per user (computed when checking or when rules are met)
+export const userOpportunityUnlocks = sqliteTable(
+  "user_opportunity_unlocks",
+  {
+    userId: text("user_id").notNull(),
+    opportunityId: integer("opportunity_id").notNull(),
+    unlockedAt: integer("unlocked_at", { mode: "timestamp_ms" }).notNull().default(sql`(unixepoch() * 1000)`),
+  },
+  (table) => ({
+    pairUnique: uniqueIndex("user_opportunity_unlocks_user_opportunity_unique").on(table.userId, table.opportunityId),
+  })
+);
 
 // NOTE: Add unique index for (userId, lower(title)) on goals via migration for idempotent inserts.
 

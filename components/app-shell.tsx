@@ -4,13 +4,14 @@ import * as React from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { useUser } from "@clerk/nextjs"
-import { Home, Target, TrendingUp, User } from "lucide-react"
+import { Home, Target, TrendingUp, User, Users } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 const TABS = [
   { href: "/dashboard", label: "Home",     Icon: Home },
   { href: "/goals",     label: "Goals",    Icon: Target },
   { href: "/progress",  label: "Progress", Icon: TrendingUp },
+  { href: "/social",    label: "Social",   Icon: Users },
   { href: "/profile",   label: "Profile",  Icon: User },
 ] as const
 

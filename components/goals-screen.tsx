@@ -1,11 +1,10 @@
 "use client"
 
 import * as React from "react"
-import { Plus, ChevronDown, ChevronRight, Check, Loader2, Trash2, Sparkles } from "lucide-react"
-import { getGoals, createGoal, deleteGoal } from "@/app/actions/goals"
+import { Plus, ChevronDown, ChevronRight, Check, Loader2, Trash2, Sparkles, Pencil } from "lucide-react"
+import { getGoals, createGoal, deleteGoal, updateGoal, autoPrioritizeGoals } from "@/app/actions/goals"
 import { getTasks, toggleTaskCompletion, createTask } from "@/app/actions/tasks"
-import { getValueSettings } from "@/app/actions/value-settings"
-import { calculateTaskValue, formatDollars } from "@/lib/value"
+import { formatDollars } from "@/lib/value"
 import { AppShell } from "@/components/app-shell"
 
 interface GoalRow {
@@ -16,6 +15,8 @@ interface GoalRow {
   unit: string | null
   category: string | null
   alignment_category: string | null
+  priority_quadrant?: "do" | "plan" | "delegate" | "drop" | null
+  priority_reason?: string | null
   deadline: string | null
   created_at: string
 }
@@ -26,12 +27,17 @@ interface TaskRow {
   goal_id: number | null
   alignment_score: number | null
   alignment_category: string | null
+  estimated_value_cents?: number | null
   completed: boolean | null
 }
 
 type MatrixQuadrant = "do" | "plan" | "delegate" | "drop"
 
 function getQuadrant(goal: GoalRow): MatrixQuadrant {
+  if (goal.priority_quadrant === "do") return "do"
+  if (goal.priority_quadrant === "plan") return "plan"
+  if (goal.priority_quadrant === "delegate") return "delegate"
+  if (goal.priority_quadrant === "drop") return "drop"
   const cat = (goal.alignment_category || "medium").toLowerCase()
   const hasDeadline = !!goal.deadline
   if (cat === "high") return hasDeadline ? "do" : "plan"
@@ -54,9 +60,6 @@ function GoalProgress({ current, target }: { current: number | null; target: num
 export default function GoalsScreen() {
   const [goals, setGoals] = React.useState<GoalRow[]>([])
   const [tasks, setTasks] = React.useState<TaskRow[]>([])
-  const [rates, setRates] = React.useState<Record<string, number>>({
-    design: 200, content: 180, sales: 120, strategic: 136, other: 100,
-  })
   const [loading, setLoading] = React.useState(true)
   const [expanded, setExpanded] = React.useState<Set<number>>(new Set())
   const [filter, setFilter] = React.useState<"all" | "active" | "completed">("all")
@@ -66,21 +69,40 @@ export default function GoalsScreen() {
   const [togglingTask, setTogglingTask] = React.useState<number | null>(null)
   const [deletingGoal, setDeletingGoal] = React.useState<number | null>(null)
   const [confirmDelete, setConfirmDelete] = React.useState<number | null>(null)
+  const [editingGoal, setEditingGoal] = React.useState<GoalRow | null>(null)
+  const didAutoPrioritize = React.useRef(false)
 
   React.useEffect(() => {
     async function load() {
-      const [goalsRes, tasksRes, ratesRes] = await Promise.all([
+      const [goalsRes, tasksRes] = await Promise.all([
         getGoals(),
         getTasks(),
-        getValueSettings(),
       ])
       if (goalsRes.success) setGoals(goalsRes.goals as any)
       if (tasksRes.success) setTasks(tasksRes.tasks as any)
-      if (ratesRes.rates) setRates(ratesRes.rates as any)
       setLoading(false)
     }
     load()
   }, [])
+
+  // One-time automatic backfill so existing goals get AI matrix placement.
+  React.useEffect(() => {
+    if (loading) return
+    if (didAutoPrioritize.current) return
+    if (!goals.length) return
+
+    const missing = goals.some((g) => !g.priority_quadrant)
+    if (!missing) return
+
+    didAutoPrioritize.current = true
+    autoPrioritizeGoals()
+      .then((res: any) => {
+        if (res?.success && Array.isArray(res.goals) && res.goals.length) {
+          setGoals(res.goals as any)
+        }
+      })
+      .catch((e) => console.warn("Auto-prioritize failed:", e))
+  }, [loading, goals])
 
   const toggleExpand = (id: number) =>
     setExpanded((s) => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n })
@@ -110,7 +132,8 @@ export default function GoalsScreen() {
   const handleAddTask = async (goalId: number) => {
     const title = newTaskTitle[goalId]?.trim()
     if (!title) return
-    const res = await createTask(title, "", undefined, undefined, goalId)
+    // Skip AI on create so the task appears instantly; AI enriches later.
+    const res = await createTask(title, "", undefined, undefined, goalId, { skipAI: true })
     if (res.success && res.task) {
       setTasks((prev) => [...prev, res.task as any])
       setNewTaskTitle((prev) => ({ ...prev, [goalId]: "" }))
@@ -120,14 +143,17 @@ export default function GoalsScreen() {
 
   // Priority matrix
   const matrix: Record<MatrixQuadrant, GoalRow[]> = { do: [], plan: [], delegate: [], drop: [] }
-  goals.forEach((g) => matrix[getQuadrant(g)].push(g))
+  goals.forEach((g) => {
+    const q = getQuadrant(g)
+    ;(matrix[q] ?? matrix.plan).push(g)
+  })
 
   // Potential value per matrix quadrant: sum of pending tasks' estimated value
   const matrixValue = (quadrant: MatrixQuadrant): number => {
     const goalIds = matrix[quadrant].map((g) => g.id)
     return tasks
       .filter((t) => !t.completed && t.goal_id != null && goalIds.includes(t.goal_id))
-      .reduce((sum, t) => sum + calculateTaskValue(t.alignment_score, t.alignment_category, rates as any), 0)
+      .reduce((sum, t) => sum + Math.round(((t.estimated_value_cents ?? 0) as number) / 100), 0)
   }
 
   // Filtered goals
@@ -251,6 +277,13 @@ export default function GoalsScreen() {
                     <div className="flex items-center gap-1.5 shrink-0">
                       <span className={`text-[13px] font-bold font-mono ${pctTextColor}`}>{pct}%</span>
                       <button
+                        onClick={(e) => { e.stopPropagation(); setEditingGoal(goal) }}
+                        title="Edit goal"
+                        className="p-1 rounded-lg transition-colors text-slate-300 hover:text-green-600 hover:bg-green-50"
+                      >
+                        <Pencil className="h-3 w-3" />
+                      </button>
+                      <button
                         onClick={(e) => { e.stopPropagation(); handleDeleteGoal(goal.id) }}
                         disabled={deletingGoal === goal.id}
                         title={confirmDelete === goal.id ? "Click again to confirm delete" : "Delete goal"}
@@ -301,11 +334,15 @@ export default function GoalsScreen() {
                       ) : (
                         <div className="space-y-0">
                           {goalTasks.map((task) => {
-                            const taskValue = calculateTaskValue(task.alignment_score, task.alignment_category, rates as any)
+                            const taskValue = Math.round(((task.estimated_value_cents ?? 0) as number) / 100)
                             return (
-                              <div key={task.id} className="flex items-center gap-2 py-1.5 border-b border-slate-50 last:border-0">
+                              <div
+                                key={task.id}
+                                className="flex items-center gap-2 py-1.5 border-b border-slate-50 last:border-0 cursor-pointer"
+                                onClick={() => handleToggleTask(task.id)}
+                              >
                                 <button
-                                  onClick={() => handleToggleTask(task.id)}
+                                  onClick={(e) => { e.stopPropagation(); handleToggleTask(task.id) }}
                                   disabled={togglingTask === task.id}
                                   className={`w-4 h-4 rounded border-[1.5px] shrink-0 flex items-center justify-center transition-colors ${
                                     task.completed
@@ -341,7 +378,7 @@ export default function GoalsScreen() {
                               if (e.key === "Escape") setAddingTask(null)
                             }}
                             placeholder="Task title…"
-                            className="flex-1 border border-slate-200 rounded-lg px-2.5 py-1.5 text-[12px] outline-none focus:border-green-400"
+                            className="flex-1 border border-slate-200 rounded-lg px-2.5 py-1.5 text-[12px] outline-none focus:border-green-400 bg-white text-slate-800 placeholder:text-slate-400"
                           />
                           <button
                             onClick={() => handleAddTask(goal.id)}
@@ -388,6 +425,17 @@ export default function GoalsScreen() {
           onCreated={(g) => { setGoals((p) => [g as any, ...p]); setShowAddGoal(false) }}
         />
       )}
+
+      {editingGoal && (
+        <EditGoalModal
+          goal={editingGoal}
+          onClose={() => setEditingGoal(null)}
+          onUpdated={(g) => {
+            setGoals((p) => p.map((x) => x.id === (g as any).id ? (g as any) : x))
+            setEditingGoal(null)
+          }}
+        />
+      )}
     </AppShell>
   )
 }
@@ -426,6 +474,54 @@ function AddGoalModal({ onClose, onCreated }: { onClose: () => void; onCreated: 
             className="w-full bg-green-600 hover:bg-green-700 text-white rounded-xl py-2.5 text-[13px] font-semibold transition-colors flex items-center justify-center gap-2"
           >
             {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Create goal"}
+          </button>
+        </form>
+      </div>
+    </div>
+  )
+}
+
+function EditGoalModal({ goal, onClose, onUpdated }: { goal: GoalRow; onClose: () => void; onUpdated: (g: any) => void }) {
+  const [saving, setSaving] = React.useState(false)
+
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    setSaving(true)
+    const fd = new FormData(e.currentTarget)
+    const res = await updateGoal(goal.id, fd)
+    setSaving(false)
+    if (res.success && res.goal) onUpdated(res.goal)
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center lg:items-center" onClick={onClose}>
+      <div className="absolute inset-0 bg-black/40" />
+      <div
+        className="relative bg-white rounded-t-3xl lg:rounded-2xl w-full max-w-md p-5 pb-8 shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h3 className="text-[15px] font-bold text-slate-800 mb-4">Edit goal</h3>
+        <form onSubmit={handleSubmit} className="space-y-3">
+          <input defaultValue={goal.title ?? ""} name="title" required placeholder="Goal title" className="w-full border border-slate-200 rounded-xl px-3.5 py-2.5 text-[13px] outline-none focus:border-green-400" />
+          <input defaultValue={(goal as any).description ?? ""} name="description" placeholder="Description (optional)" className="w-full border border-slate-200 rounded-xl px-3.5 py-2.5 text-[13px] outline-none focus:border-green-400" />
+          <div className="grid grid-cols-2 gap-2">
+            <input defaultValue={(goal as any).target_value ?? ""} name="targetValue" type="number" placeholder="Target (e.g. 100)" className="border border-slate-200 rounded-xl px-3.5 py-2.5 text-[13px] outline-none focus:border-green-400" />
+            <input defaultValue={(goal as any).unit ?? ""} name="unit" placeholder="Unit (e.g. customers)" className="border border-slate-200 rounded-xl px-3.5 py-2.5 text-[13px] outline-none focus:border-green-400" />
+          </div>
+          <input defaultValue={goal.category ?? ""} name="category" placeholder="Category (optional)" className="w-full border border-slate-200 rounded-xl px-3.5 py-2.5 text-[13px] outline-none focus:border-green-400" />
+          <input defaultValue={(goal as any).type ?? ""} name="goalType" placeholder="Goal type (optional)" className="w-full border border-slate-200 rounded-xl px-3.5 py-2.5 text-[13px] outline-none focus:border-green-400" />
+          <input
+            name="deadline"
+            type="date"
+            defaultValue={goal.deadline ? new Date(goal.deadline).toISOString().slice(0, 10) : ""}
+            className="w-full border border-slate-200 rounded-xl px-3.5 py-2.5 text-[13px] outline-none focus:border-green-400 text-slate-500"
+          />
+          <button
+            type="submit"
+            disabled={saving}
+            className="w-full bg-green-600 hover:bg-green-700 text-white rounded-xl py-2.5 text-[13px] font-semibold transition-colors flex items-center justify-center gap-2"
+          >
+            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save changes"}
           </button>
         </form>
       </div>

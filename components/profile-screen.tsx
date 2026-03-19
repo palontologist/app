@@ -3,11 +3,10 @@
 import * as React from "react"
 import { useUser } from "@clerk/nextjs"
 import { SignOutButton } from "@clerk/nextjs"
-import { Check, Loader2, Edit2, Plus, Star } from "lucide-react"
+import { Check, Loader2, Plus, Star, Edit2 } from "lucide-react"
 import { getUser, updateUser } from "@/app/actions/user"
 import { getTasks } from "@/app/actions/tasks"
 import { getGoals } from "@/app/actions/goals"
-import { getValueSettings, updateValueSettings } from "@/app/actions/value-settings"
 import { isGoogleCalendarConnected } from "@/app/actions/google-calendar"
 import { AppShell } from "@/components/app-shell"
 
@@ -23,25 +22,20 @@ export default function ProfileScreen() {
   const [profile, setProfile] = React.useState<any>(null)
   const [tasks, setTasks] = React.useState<any[]>([])
   const [goals, setGoals] = React.useState<any[]>([])
-  const [rates, setRates] = React.useState({ design: 200, content: 180, sales: 120, strategic: 136, other: 100 })
   const [calConnected, setCalConnected] = React.useState<boolean | null>(null)
   const [loading, setLoading] = React.useState(true)
 
   // Edit states
   const [editingMission, setEditingMission] = React.useState(false)
-  const [editingRates, setEditingRates] = React.useState(false)
   const [missionForm, setMissionForm] = React.useState({ name: "", mission: "", worldVision: "", focusAreas: "" })
-  const [ratesForm, setRatesForm] = React.useState({ design: "200", content: "180", sales: "120", strategic: "136", other: "100" })
   const [savingMission, setSavingMission] = React.useState(false)
-  const [savingRates, setSavingRates] = React.useState(false)
 
   React.useEffect(() => {
     async function load() {
-      const [userRes, tasksRes, goalsRes, ratesRes, calRes] = await Promise.all([
+      const [userRes, tasksRes, goalsRes, calRes] = await Promise.all([
         getUser(),
         getTasks(),
         getGoals(),
-        getValueSettings(),
         isGoogleCalendarConnected(),
       ])
       if (userRes.success && userRes.user) {
@@ -55,9 +49,6 @@ export default function ProfileScreen() {
       }
       if (tasksRes.success) setTasks(tasksRes.tasks)
       if (goalsRes.success) setGoals(goalsRes.goals)
-      const r = ratesRes.rates as any
-      setRates(r)
-      setRatesForm({ design: String(r.design), content: String(r.content), sales: String(r.sales), strategic: String(r.strategic), other: String(r.other) })
       setCalConnected(calRes)
       setLoading(false)
     }
@@ -72,16 +63,6 @@ export default function ProfileScreen() {
     if (res.success && res.user) setProfile(res.user)
     setSavingMission(false)
     setEditingMission(false)
-  }
-
-  const handleSaveRates = async () => {
-    setSavingRates(true)
-    const fd = new FormData()
-    Object.entries(ratesForm).forEach(([k, v]) => fd.append(k, v))
-    const res = await updateValueSettings(fd)
-    if (res.success) setRates({ design: +ratesForm.design, content: +ratesForm.content, sales: +ratesForm.sales, strategic: +ratesForm.strategic, other: +ratesForm.other })
-    setSavingRates(false)
-    setEditingRates(false)
   }
 
   const initials = React.useMemo(() => {
@@ -267,76 +248,6 @@ export default function ProfileScreen() {
                 <span className="text-[12px] font-semibold text-green-600">{val}</span>
               </div>
             ))}
-          </div>
-        </div>
-
-        {/* ── Value settings ── */}
-        <div>
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-[12px] font-bold text-slate-800">Value settings</span>
-            <button
-              onClick={() => setEditingRates((v) => !v)}
-              className="text-[11px] text-green-600 font-medium flex items-center gap-1"
-            >
-              <Edit2 className="h-3 w-3" /> Edit rates
-            </button>
-          </div>
-          <div className="bg-white rounded-2xl border border-black/[0.07]">
-            {editingRates ? (
-              <div className="p-3.5 space-y-2.5">
-                {[
-                  { key: "design", label: "Design / creative work" },
-                  { key: "content", label: "Newsletter / content" },
-                  { key: "sales", label: "Sales / outreach calls" },
-                  { key: "strategic", label: "Strategic / deep work" },
-                  { key: "other", label: "Other tasks" },
-                ].map(({ key, label }) => (
-                  <div key={key} className="flex items-center justify-between gap-3">
-                    <span className="text-[12px] text-slate-700 flex-1">{label}</span>
-                    <div className="flex items-center gap-1">
-                      <span className="text-[12px] text-slate-500">$</span>
-                      <input
-                        type="number"
-                        value={(ratesForm as any)[key]}
-                        onChange={(e) => setRatesForm((p) => ({ ...p, [key]: e.target.value }))}
-                        className="w-20 border border-slate-200 rounded-lg px-2 py-1 text-[12px] text-right outline-none focus:border-green-400 font-mono"
-                      />
-                      <span className="text-[11px] text-slate-400">/task</span>
-                    </div>
-                  </div>
-                ))}
-                <div className="flex gap-2 pt-1">
-                  <button onClick={handleSaveRates} disabled={savingRates} className="flex-1 bg-green-600 text-white rounded-xl py-2 text-[13px] font-semibold hover:bg-green-700 flex items-center justify-center gap-1.5">
-                    {savingRates ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Save rates"}
-                  </button>
-                  <button onClick={() => setEditingRates(false)} className="flex-1 bg-slate-100 text-slate-600 rounded-xl py-2 text-[13px]">
-                    Cancel
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <div className="divide-y divide-slate-100">
-                {[
-                  { key: "design", label: "Design / creative work" },
-                  { key: "content", label: "Newsletter / content" },
-                  { key: "sales", label: "Sales / outreach calls" },
-                  { key: "strategic", label: "Strategic / deep work" },
-                ].map(({ key, label }) => (
-                  <div key={key} className="flex items-center justify-between px-3.5 py-3">
-                    <span className="text-[12.5px] font-medium text-slate-800">{label}</span>
-                    <span className="text-[13px] font-bold text-amber-600 font-mono">${(rates as any)[key]}/task</span>
-                  </div>
-                ))}
-                <div className="px-3.5 py-2.5">
-                  <button
-                    onClick={() => setEditingRates(true)}
-                    className="w-full bg-green-50 border-none rounded-xl py-2.5 text-[13px] font-semibold text-green-700 hover:bg-green-100 transition-colors"
-                  >
-                    + Edit value categories
-                  </button>
-                </div>
-              </div>
-            )}
           </div>
         </div>
 

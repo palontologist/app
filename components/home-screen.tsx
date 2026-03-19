@@ -8,9 +8,8 @@ import { getTasks, toggleTaskCompletion } from "@/app/actions/tasks"
 import { getGoals } from "@/app/actions/goals"
 import { getUser } from "@/app/actions/user"
 import { getCachedDashboardSummary } from "@/app/actions/analytics"
-import { getValueSettings } from "@/app/actions/value-settings"
 import { getAISuggestedTask, type AISuggestion } from "@/app/actions/ai-task-suggestion"
-import { calculateTaskValue, formatDollars, getWeekStart } from "@/lib/value"
+import { formatDollars, getWeekStart } from "@/lib/value"
 import { AppShell } from "@/components/app-shell"
 import SmartTaskDialog from "@/components/smart-task-dialog"
 import GoalsDialog from "@/components/goals-dialog"
@@ -20,6 +19,7 @@ interface TaskRow {
   title: string | null
   alignment_score: number | null
   alignment_category: string | null
+  estimated_value_cents?: number | null
   completed: boolean | null
   completed_at: Date | null
   goal_id: number | null
@@ -32,11 +32,11 @@ function calcAlignmentScore(tasks: TaskRow[]): number {
   return Math.round(relevant.reduce((s, t) => s + (t.alignment_score ?? 50), 0) / relevant.length)
 }
 
-function getThisWeekValue(tasks: TaskRow[], rates: Record<string, number>): number {
+function getThisWeekValue(tasks: TaskRow[]): number {
   const weekStart = getWeekStart()
   return tasks
     .filter((t) => t.completed && t.completed_at && new Date(t.completed_at) >= weekStart)
-    .reduce((sum, t) => sum + calculateTaskValue(t.alignment_score, t.alignment_category, rates as any), 0)
+    .reduce((sum, t) => sum + Math.round(((t.estimated_value_cents ?? 0) as number) / 100), 0)
 }
 
 export default function HomeScreen() {
@@ -45,7 +45,6 @@ export default function HomeScreen() {
   const [tasks, setTasks] = React.useState<TaskRow[]>([])
   const [user, setUser] = React.useState<any>(null)
   const [insight, setInsight] = React.useState("")
-  const [rates, setRates] = React.useState<Record<string, number>>({ design: 200, content: 180, sales: 120, strategic: 136, other: 100 })
   const [loading, setLoading] = React.useState(true)
 
   // Skip queue — IDs the user has skipped this session
@@ -64,16 +63,14 @@ export default function HomeScreen() {
   // ── Load data ──────────────────────────────────────────────────────────────
   React.useEffect(() => {
     async function load() {
-      const [tasksRes, userRes, insightRes, ratesRes] = await Promise.all([
+      const [tasksRes, userRes, insightRes] = await Promise.all([
         getTasks(),
         getUser(),
         getCachedDashboardSummary(),
-        getValueSettings(),
       ])
       if (tasksRes.success) setTasks(tasksRes.tasks as any)
       if (userRes.success && userRes.user) setUser(userRes.user)
       if (insightRes) setInsight(typeof insightRes === "string" ? insightRes : (insightRes as any)?.content ?? "")
-      if (ratesRes.rates) setRates(ratesRes.rates as any)
       setLoading(false)
     }
     load()
@@ -122,11 +119,11 @@ export default function HomeScreen() {
   const suggestedValue = React.useMemo(() => {
     if (aiSuggestion?.estimatedValueDollars) return aiSuggestion.estimatedValueDollars
     if (!suggestedTask) return 0
-    return calculateTaskValue(suggestedTask.alignment_score, suggestedTask.alignment_category, rates as any)
-  }, [aiSuggestion, suggestedTask, rates])
+    return Math.round(((suggestedTask.estimated_value_cents ?? 0) as number) / 100)
+  }, [aiSuggestion, suggestedTask])
 
   const alignmentScore = calcAlignmentScore(tasks)
-  const weekValue = getThisWeekValue(tasks, rates)
+  const weekValue = getThisWeekValue(tasks)
   const highImpactCount = pendingTasks.filter((t) => t.alignment_category === "high").length
 
   const circ = 188.5

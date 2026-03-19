@@ -51,6 +51,16 @@ Greta is a mission-first productivity app that fuses personal growth, startup ex
 - AI: `lib/ai.ts` (alignment summaries and metric suggestions)
 - Caching: `dashboard_insights` table for persistent AI insight on dashboard
 
+## Baseline Migration (Recommended)
+
+For **new databases**, you can bootstrap the current schema with a single baseline SQL file:
+
+- `migrations_baseline/0000_baseline_current.sql`
+
+**Important**
+- Use this baseline for **fresh** databases.
+- For existing databases, use Drizzle migrations (or carefully planned backfills), not the baseline.
+
 ## Data Model (Tables)
 - `user_profiles`: name, mission, worldVision, focusAreas, onboarded, timestamps
 - `goals`: title, description, category, goal_type (personal|startup), unit, target/current, deadline, archived

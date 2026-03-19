@@ -4,7 +4,7 @@ import { auth } from "@clerk/nextjs/server"
 import { db, tasks, workSessions, now, goals, userProfiles } from "@/lib/db"
 import { eq, and, desc, sql, ilike } from "drizzle-orm"
 import { revalidatePath } from "next/cache"
-import { analyzeTaskAlignment } from "@/lib/ai"
+import { analyzeTaskAlignment, estimateTaskValueCents } from "@/lib/ai"
 import { saveHistoricalAlignmentData } from "@/app/actions/analytics"
 
 function mapTask(row: typeof tasks.$inferSelect) {
@@ -17,6 +17,7 @@ function mapTask(row: typeof tasks.$inferSelect) {
     alignment_score: row.alignmentScore,
     alignment_category: row.alignmentCategory,
     ai_analysis: row.aiAnalysis,
+    estimated_value_cents: row.estimatedValueCents ?? 0,
     completed: !!row.completed,
     completed_at: row.completedAt ? new Date(row.completedAt) : null,
     created_at: new Date(row.createdAt),
@@ -36,7 +37,14 @@ export async function getTasks() {
   }
 }
 
-export async function createTask(formDataOrTitle: FormData | string, descriptionArg?: string, _userId?: number, alignmentCategoryArg?: string, goalIdArg?: number) {
+export async function createTask(
+  formDataOrTitle: FormData | string,
+  descriptionArg?: string,
+  _userId?: number,
+  alignmentCategoryArg?: string,
+  goalIdArg?: number,
+  options?: { skipAI?: boolean },
+) {
   try {
     // Handle both FormData and direct string input
     let title: string = '';
@@ -95,28 +103,9 @@ export async function createTask(formDataOrTitle: FormData | string, description
         console.warn('Auto goal-link heuristic failed:', e)
       }
     }
-    // Get user profile for AI analysis
-    const userProfile = await db.select().from(userProfiles).where(eq(userProfiles.userId, userId))
-
-    // Perform AI alignment analysis
-    let aiAnalysis = null
+    const skipAI = Boolean(options?.skipAI)
+    let aiAnalysis: string | null = null
     let alignmentScore = 50
-    try {
-      const analysis = await analyzeTaskAlignment(
-        String(title).trim(),
-        description || "",
-        userProfile[0]?.mission || "",
-        userProfile[0]?.worldVision || "",
-        userProfile[0]?.missionPillars ? JSON.parse(userProfile[0].missionPillars) : undefined
-      )
-
-      aiAnalysis = analysis.analysis
-      alignmentScore = analysis.alignment_score || 50
-      alignmentCategory = analysis.alignment_category || "medium"
-    } catch (error) {
-      console.error("AI analysis failed:", error)
-      aiAnalysis = "Unable to analyze alignment at this time."
-    }
 
     const inserted = await db.insert(tasks).values({
       userId,
@@ -129,6 +118,44 @@ export async function createTask(formDataOrTitle: FormData | string, description
       completed: false,
       updatedAt: new Date(),
     }).returning()
+
+    // Fire-and-forget AI enrichment (alignment + value) so tasks appear immediately in UI.
+    // Even when skipAI=true, we still enrich in the background.
+    void (async () => {
+      try {
+        const userProfile = await db.select().from(userProfiles).where(eq(userProfiles.userId, userId))
+        const analysis = await analyzeTaskAlignment(
+          String(title).trim(),
+          description || "",
+          userProfile[0]?.mission || "",
+          userProfile[0]?.worldVision || "",
+          userProfile[0]?.missionPillars ? JSON.parse(userProfile[0].missionPillars) : undefined
+        )
+        // AI-estimated dollar value (stored as cents)
+        let estCents = 0
+        try {
+          estCents = await estimateTaskValueCents({
+            title: String(title).trim(),
+            description: description || "",
+            mission: userProfile[0]?.mission || "",
+            worldVision: userProfile[0]?.worldVision || "",
+            focusAreas: userProfile[0]?.focusAreas || "",
+          })
+        } catch (e) {
+          // best-effort
+        }
+        await db.update(tasks).set({
+          alignmentScore: analysis.alignment_score || 50,
+          alignmentCategory: analysis.alignment_category || alignmentCategory,
+          aiAnalysis: analysis.analysis || null,
+          estimatedValueCents: estCents,
+          updatedAt: new Date(),
+        }).where(and(eq(tasks.userId, userId), eq(tasks.id, inserted[0].id)))
+        revalidatePath("/dashboard")
+      } catch (e) {
+        console.warn("Async task AI enrichment failed:", e)
+      }
+    })()
     revalidatePath("/dashboard")
 
     // Save historical alignment data when task is created

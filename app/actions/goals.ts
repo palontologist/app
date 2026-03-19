@@ -4,7 +4,7 @@ import { auth } from "@clerk/nextjs/server"
 import { db, goals, goalActivities, now, tasks, userProfiles } from "@/lib/db"
 import { eq, and, desc, sql } from "drizzle-orm"
 import { revalidatePath } from "next/cache"
-import { analyzeGoalAlignment } from "@/lib/ai"
+import { analyzeGoalAlignment, analyzeGoalPriority } from "@/lib/ai"
 
 // Map DB row -> client shape (keeping camelCase variants if needed)
 function mapGoal(row: typeof goals.$inferSelect) {
@@ -37,10 +37,169 @@ function mapGoal(row: typeof goals.$inferSelect) {
     mission_pillar: row.missionPillar,
     impact_statement: row.impactStatement,
     ai_suggestions: row.aiSuggestions,
+    priority_quadrant: row.priorityQuadrant,
+    priority_reason: row.priorityReason,
     deadline: safeDate(row.deadline),
     created_at: safeDate(row.createdAt) || new Date(),
     updated_at: safeDate(row.updatedAt) || new Date(),
   }
+}
+
+function computePriorityQuadrant(input: {
+  alignmentCategory?: string | null
+  alignmentScore?: number | null
+  deadlineMs?: number | null
+  progressPct?: number | null
+}): { quadrant: "do" | "plan" | "delegate" | "drop"; reason: string } {
+  const nowMs = Date.now()
+  const cat = String(input.alignmentCategory || "medium").toLowerCase()
+  const score = input.alignmentScore ?? null
+  const deadlineMs = input.deadlineMs ?? null
+  const daysToDeadline = deadlineMs ? Math.round((deadlineMs - nowMs) / (1000 * 60 * 60 * 24)) : null
+  const progressPct = input.progressPct ?? null
+
+  if (cat === "distraction") {
+    return { quadrant: "drop", reason: "Low mission alignment — consider removing or deferring." }
+  }
+  if (cat === "low") {
+    return { quadrant: "delegate", reason: "Lower alignment — delegate if possible." }
+  }
+
+  const urgent = daysToDeadline != null && daysToDeadline <= 7
+  const nearFinish = progressPct != null && progressPct >= 80
+  const high = cat === "high" || (score != null && score >= 80)
+
+  if (urgent || (high && deadlineMs != null) || (nearFinish && deadlineMs != null)) {
+    return {
+      quadrant: "do",
+      reason: urgent
+        ? "Deadline soon — do first."
+        : high
+          ? "High alignment + deadline — do first."
+          : "Near completion + deadline — finish it now.",
+    }
+  }
+
+  if (high) return { quadrant: "plan", reason: "High alignment — schedule consistent time blocks." }
+  return { quadrant: "plan", reason: "Medium alignment — schedule and refine." }
+}
+
+export async function autoPrioritizeGoals() {
+  const { userId } = await auth()
+  if (!userId) return { success: false as const, error: "Unauthenticated" }
+
+  // Defer heavy lifting to existing AI alignment inputs:
+  // If a goal doesn't have alignmentCategory yet, analyze it.
+  // Then compute a quadrant using a more flexible heuristic:
+  // - "do" if (high alignment) OR (deadline soon) OR (high progress + deadline)
+  // - "delegate" if low/distraction
+  // - otherwise "plan"
+
+  const profileRows = await db.select().from(userProfiles).where(eq(userProfiles.userId, userId))
+  const profile = profileRows[0]
+
+  const rows = await db
+    .select()
+    .from(goals)
+    .where(and(eq(goals.userId, userId), eq(goals.archived, false)))
+    .orderBy(desc(goals.updatedAt))
+
+  const updated: any[] = []
+
+  // Context for better ranking: recent tasks + activities
+  let recentTaskTitles: string[] = []
+  let recentActivityTitles: string[] = []
+  try {
+    const t = await db
+      .select({ title: tasks.title })
+      .from(tasks)
+      .where(eq(tasks.userId, userId))
+      .orderBy(desc(tasks.updatedAt))
+      .limit(12)
+    recentTaskTitles = t.map((r) => String(r.title || "")).filter(Boolean)
+  } catch {}
+  try {
+    const a = await db
+      .select({ title: goalActivities.title })
+      .from(goalActivities)
+      .where(eq(goalActivities.userId, userId))
+      .orderBy(desc(goalActivities.updatedAt))
+      .limit(12)
+    recentActivityTitles = a.map((r) => String(r.title || "")).filter(Boolean)
+  } catch {}
+
+  for (const g of rows as any[]) {
+    let alignmentCategory = (g.alignmentCategory as string | null) ?? null
+    let alignmentScore = (g.alignmentScore as number | null) ?? null
+
+    if (!alignmentCategory || alignmentCategory === "medium") {
+      try {
+        const analysis = await analyzeGoalAlignment(
+          String(g.title || "").trim(),
+          String(g.description || ""),
+          String(profile?.mission || ""),
+          String(profile?.worldVision || ""),
+          profile?.missionPillars ? JSON.parse(profile.missionPillars) : undefined
+        )
+        alignmentScore = analysis.alignment_score ?? alignmentScore ?? 50
+        alignmentCategory = analysis.alignment_category ?? alignmentCategory ?? "medium"
+      } catch (e) {
+        // best-effort
+      }
+    }
+
+    const target = g.targetValue != null ? Number(g.targetValue) : null
+    const current = g.currentValue != null ? Number(g.currentValue) : 0
+    const progressPct = target && target > 0 ? Math.round((current / target) * 100) : null
+
+    // AI assigns matrix quadrant using mission + recent behavior context.
+    let quadrant: "do" | "plan" | "delegate" | "drop" = "plan"
+    let reason = "Scheduled for steady progress."
+    try {
+      const ai = await analyzeGoalPriority({
+        goalTitle: String(g.title || "").trim(),
+        goalDescription: String(g.description || ""),
+        goalCategory: g.category ?? null,
+        goalType: g.goalType ?? null,
+        targetValue: target,
+        currentValue: current,
+        unit: g.unit ?? null,
+        deadlineIso: g.deadline ? new Date(Number(g.deadline)).toISOString() : null,
+        mission: String(profile?.mission || ""),
+        worldVision: String(profile?.worldVision || ""),
+        focusAreas: String(profile?.focusAreas || ""),
+        recentTaskTitles,
+        recentActivityTitles,
+      })
+      quadrant = ai.priority_quadrant
+      reason = ai.priority_reason
+    } catch (e) {
+      // Fallback to heuristic if the model output is messy/unavailable
+      const fallback = computePriorityQuadrant({
+        alignmentCategory,
+        alignmentScore,
+        deadlineMs: g.deadline ? Number(g.deadline) : null,
+        progressPct,
+      })
+      quadrant = fallback.quadrant
+      reason = fallback.reason
+    }
+
+    const timestamp = new Date()
+    const upd = await db.update(goals).set({
+      alignmentScore: alignmentScore ?? g.alignmentScore ?? null,
+      alignmentCategory: alignmentCategory ?? g.alignmentCategory ?? null,
+      priorityQuadrant: quadrant,
+      priorityReason: reason,
+      priorityUpdatedAt: timestamp,
+      updatedAt: timestamp,
+    }).where(and(eq(goals.userId, userId), eq(goals.id, g.id))).returning()
+
+    if (upd[0]) updated.push(mapGoal(upd[0] as any))
+  }
+
+  revalidatePath("/goals")
+  return { success: true as const, goals: updated }
 }
 
 export async function getGoals() {
@@ -132,6 +291,34 @@ export async function createGoal(formData: FormData) {
     }
 
     const timestamp = new Date() // Use Date object instead of now() timestamp
+    let quadrant: "do" | "plan" | "delegate" | "drop" = "plan"
+    let reason = "Scheduled for steady progress."
+    try {
+      const ai = await analyzeGoalPriority({
+        goalTitle: title.trim(),
+        goalDescription: description || "",
+        goalCategory: category ?? null,
+        goalType: goalType ?? null,
+        targetValue: targetValue ?? null,
+        currentValue: 0,
+        unit: unit ?? null,
+        deadlineIso: deadline ? deadline.toISOString() : null,
+        mission: userProfile[0]?.mission || "",
+        worldVision: userProfile[0]?.worldVision || "",
+        focusAreas: userProfile[0]?.focusAreas || "",
+      })
+      quadrant = ai.priority_quadrant
+      reason = ai.priority_reason
+    } catch {
+      const fallback = computePriorityQuadrant({
+        alignmentCategory,
+        alignmentScore,
+        deadlineMs: deadline ? deadline.getTime() : null,
+        progressPct: null,
+      })
+      quadrant = fallback.quadrant
+      reason = fallback.reason
+    }
     const inserted = await db.insert(goals).values({
       userId,
       title: title.trim(),
@@ -146,6 +333,9 @@ export async function createGoal(formData: FormData) {
       missionPillar: missionPillar,
       impactStatement: impactStatement,
       aiSuggestions: aiSuggestions,
+      priorityQuadrant: quadrant,
+      priorityReason: reason,
+      priorityUpdatedAt: timestamp,
       deadline: deadline, // Use Date object directly
       updatedAt: timestamp,
     }).returning()
@@ -184,6 +374,123 @@ export async function updateGoalProgress(goalId: number, newValue: number) {
     }).where(and(eq(goals.userId, userId), eq(goals.id, goalId))).returning()
     
     if (!updated.length) return { success: false, error: "Goal not found" }
+    revalidatePath("/dashboard")
+    revalidatePath("/impact")
+    return { success: true, goal: mapGoal(updated[0]) }
+  } catch (error) {
+    console.error("Failed to update goal:", error)
+    return { success: false, error: "Failed to update goal" }
+  }
+}
+
+export async function updateGoal(goalId: number, formData: FormData) {
+  try {
+    const { userId } = await auth()
+    if (!userId) return { success: false, error: "Unauthenticated" }
+
+    const titleValue = formData.get("title")
+    const title = typeof titleValue === "string" ? titleValue.trim() : ""
+    if (!title) return { success: false, error: "Goal title is required" }
+
+    const descriptionValue = formData.get("description")
+    const description = typeof descriptionValue === "string" ? descriptionValue : ""
+
+    const targetValueRaw = formData.get("targetValue")
+    const targetValue = typeof targetValueRaw === "string" && targetValueRaw !== ""
+      ? (parseInt(targetValueRaw, 10) || null)
+      : null
+
+    const unitValue = formData.get("unit")
+    const unit = typeof unitValue === "string" && unitValue.trim() ? unitValue.trim() : null
+
+    const categoryValue = formData.get("category")
+    const category = typeof categoryValue === "string" && categoryValue.trim() ? categoryValue.trim() : null
+
+    const goalTypeValue = formData.get("goalType")
+    const goalType = typeof goalTypeValue === "string" && goalTypeValue.trim() ? goalTypeValue.trim() : null
+
+    const deadlineRaw = formData.get("deadline")
+    let deadline: Date | null = null
+    if (typeof deadlineRaw === "string" && deadlineRaw) {
+      const d = new Date(deadlineRaw)
+      deadline = isNaN(d.getTime()) ? null : d
+    }
+
+    const existing = await db.select().from(goals).where(and(eq(goals.userId, userId), eq(goals.id, goalId)))
+    if (!existing.length) return { success: false, error: "Goal not found" }
+
+    // Re-run AI alignment so priority matrix stays automatic.
+    const profileRows = await db.select().from(userProfiles).where(eq(userProfiles.userId, userId))
+    const profile = profileRows[0]
+
+    let alignmentScore = existing[0].alignmentScore ?? 50
+    let alignmentCategory = existing[0].alignmentCategory ?? "medium"
+    let aiSuggestions = existing[0].aiSuggestions ?? null
+
+    try {
+      const analysis = await analyzeGoalAlignment(
+        title,
+        description || "",
+        profile?.mission || "",
+        profile?.worldVision || "",
+        profile?.missionPillars ? JSON.parse(profile.missionPillars) : undefined
+      )
+      alignmentScore = analysis.alignment_score || 50
+      alignmentCategory = analysis.alignment_category || "medium"
+      aiSuggestions = analysis.suggestions ?? aiSuggestions
+    } catch (e) {
+      // best-effort
+    }
+
+    let quadrant: "do" | "plan" | "delegate" | "drop" = "plan"
+    let reason = "Scheduled for steady progress."
+    try {
+      const ai = await analyzeGoalPriority({
+        goalTitle: title,
+        goalDescription: description || "",
+        goalCategory: category ?? null,
+        goalType: goalType ?? null,
+        targetValue,
+        currentValue: existing[0].currentValue ?? 0,
+        unit,
+        deadlineIso: deadline ? deadline.toISOString() : (existing[0].deadline ? new Date(Number(existing[0].deadline)).toISOString() : null),
+        mission: profile?.mission || "",
+        worldVision: profile?.worldVision || "",
+        focusAreas: profile?.focusAreas || "",
+      })
+      quadrant = ai.priority_quadrant
+      reason = ai.priority_reason
+    } catch {
+      const fallback = computePriorityQuadrant({
+        alignmentCategory,
+        alignmentScore,
+        deadlineMs: deadline ? deadline.getTime() : (existing[0].deadline ? Number(existing[0].deadline) : null),
+        progressPct: null,
+      })
+      quadrant = fallback.quadrant
+      reason = fallback.reason
+    }
+
+    const timestamp = new Date()
+    const updated = await db.update(goals).set({
+      title,
+      description: description || null,
+      targetValue,
+      unit,
+      category,
+      goalType,
+      deadline,
+      alignmentScore,
+      alignmentCategory,
+      aiSuggestions,
+      priorityQuadrant: quadrant,
+      priorityReason: reason,
+      priorityUpdatedAt: timestamp,
+      updatedAt: timestamp,
+    }).where(and(eq(goals.userId, userId), eq(goals.id, goalId))).returning()
+
+    if (!updated.length) return { success: false, error: "Failed to update goal" }
+    revalidatePath("/goals")
     revalidatePath("/dashboard")
     revalidatePath("/impact")
     return { success: true, goal: mapGoal(updated[0]) }
@@ -338,10 +645,24 @@ export async function completeGoalActivity(activityId: number) {
     return { success: true, activity: mapActivity(activity) }
   }
 
+  // Snapshot coarse location for feeds (privacy-safe)
+  let completedGeohash5: string | null = null
+  try {
+    const p = await db.select().from(userProfiles).where(eq(userProfiles.userId, userId))
+    if (p[0]?.locationSharingEnabled && p[0]?.locationGeohash5) {
+      completedGeohash5 = String(p[0].locationGeohash5)
+    }
+  } catch (e) {
+    // best-effort only
+    console.warn("Failed to load profile location for feed snapshot:", e)
+  }
+
   // Mark activity completed and increment goal.currentValue by activity.progressValue
   const updated = await db.update(goalActivities)
     .set({
       completed: true,
+      completedAt: timestamp,
+      completedGeohash5,
       updatedAt: timestamp,
     })
     .where(and(eq(goalActivities.userId, userId), eq(goalActivities.id, activityId)))
@@ -360,6 +681,13 @@ export async function completeGoalActivity(activityId: number) {
     }
   } catch (e) {
     console.warn('Failed to increment goal for activity completion:', e)
+  }
+
+  // Best-effort: recalc priority matrix (keeps it up-to-date without a manual button)
+  try {
+    await autoPrioritizeGoals()
+  } catch (e) {
+    console.warn("Failed to auto-prioritize goals after activity completion:", e)
   }
 
   revalidatePath("/dashboard")
