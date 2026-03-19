@@ -10,7 +10,7 @@ import {
   followUser,
   unfollowUser,
 } from "@/app/actions/social";
-import { Loader2, Users, Zap, UserPlus, UserMinus } from "lucide-react";
+import { Loader2, Users, UserPlus, UserMinus, Sparkles, Globe, Lock } from "lucide-react";
 
 type LoadState<T> =
   | { kind: "loading" }
@@ -22,6 +22,8 @@ export default function SocialFeedScreen() {
   const [suggestions, setSuggestions] = React.useState<LoadState<any[]>>({ kind: "loading" });
   const [activeProfiles, setActiveProfiles] = React.useState<LoadState<any[]>>({ kind: "loading" });
   const [followBusy, setFollowBusy] = React.useState<string | null>(null);
+  const [showChallenge, setShowChallenge] = React.useState(false);
+  const [challengeVisibility, setChallengeVisibility] = React.useState<"public" | "invite">("invite");
 
   const load = React.useCallback(async () => {
     setFollowingFeed({ kind: "loading" });
@@ -81,47 +83,46 @@ export default function SocialFeedScreen() {
       </div>
 
       <div className="px-5 pt-4 pb-8 max-w-lg mx-auto space-y-3">
-        {/* Instant value engine */}
-        <div className="bg-white rounded-2xl border border-black/[0.07] p-3.5">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Zap className="h-4 w-4 text-amber-500" />
-              <p className="text-[12px] font-bold text-slate-800">Instant value</p>
+        {/* Personalized Greta suggestion (compact) */}
+        <div className="bg-white rounded-2xl border border-black/[0.07] px-3.5 py-3">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="flex items-center gap-1 text-[10px] text-slate-400 bg-slate-50 border border-slate-100 rounded-full px-2 py-0.5 shrink-0">
+                <Sparkles className="h-2.5 w-2.5 text-purple-400" /> Greta
+              </span>
+              {suggestions.kind === "ready" && suggestions.data[0] ? (
+                <p className="text-[12px] font-semibold text-slate-800 truncate">{suggestions.data[0].title}</p>
+              ) : (
+                <p className="text-[12px] font-semibold text-slate-800 truncate">Log one activity toward your top goal</p>
+              )}
             </div>
-            <button onClick={load} className="text-[11px] text-green-700 font-medium hover:underline">
-              Refresh
-            </button>
+            <div className="flex items-center gap-2 shrink-0">
+              <button onClick={load} className="text-[11px] text-green-700 font-medium hover:underline">
+                Refresh
+              </button>
+              {suggestions.kind === "ready" && suggestions.data[0]?.key === "shared_goal_challenge" && (
+                <button
+                  onClick={() => setShowChallenge(true)}
+                  className="text-[11px] font-semibold bg-green-600 text-white rounded-lg px-2.5 py-1.5 hover:bg-green-700"
+                >
+                  Start challenge
+                </button>
+              )}
+              {suggestions.kind === "ready" && suggestions.data[0]?.href && suggestions.data[0]?.key !== "shared_goal_challenge" && (
+                <Link
+                  href={suggestions.data[0].href}
+                  className="text-[11px] font-semibold bg-green-600 text-white rounded-lg px-2.5 py-1.5 hover:bg-green-700"
+                >
+                  {suggestions.data[0].ctaLabel}
+                </Link>
+              )}
+            </div>
           </div>
-          {suggestions.kind === "loading" ? (
-            <div className="py-5 flex justify-center">
-              <Loader2 className="h-4 w-4 animate-spin text-green-600" />
-            </div>
-          ) : suggestions.kind === "error" ? (
-            <p className="text-[12px] text-slate-500 mt-2">{suggestions.message}</p>
-          ) : suggestions.data.length === 0 ? (
-            <p className="text-[12px] text-slate-500 mt-2">No suggestions right now.</p>
-          ) : (
-            <div className="mt-3 space-y-2">
-              {suggestions.data.map((s: any) => (
-                <div key={s.key} className="rounded-xl border border-slate-100 bg-slate-50 p-3">
-                  <p className="text-[12.5px] font-semibold text-slate-800">{s.title}</p>
-                  <p className="text-[11px] text-slate-500 mt-0.5 leading-relaxed">{s.reason}</p>
-                  <div className="mt-2">
-                    {s.href ? (
-                      <Link
-                        href={s.href}
-                        className="inline-flex text-[11px] font-semibold bg-green-600 text-white rounded-lg px-2.5 py-1.5 hover:bg-green-700"
-                      >
-                        {s.ctaLabel}
-                      </Link>
-                    ) : (
-                      <span className="text-[11px] text-slate-400">{s.ctaLabel}</span>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
+          <p className="text-[11px] text-slate-500 mt-1.5 leading-relaxed">
+            {suggestions.kind === "ready" && suggestions.data[0]?.reason
+              ? suggestions.data[0].reason
+              : "Small wins compound. Logging keeps you honest and boosts momentum."}
+          </p>
         </div>
 
         {/* Active people */}
@@ -208,10 +209,11 @@ export default function SocialFeedScreen() {
               {followingFeed.data.map((it: any) => {
                 const who = it.handle ? `@${it.handle}` : it.name || "Someone";
                 const when = new Date(it.completedAt).toLocaleString();
+                const label = it.kind === "task" ? "completed task" : "completed";
                 return (
                   <div key={it.id} className="rounded-xl border border-slate-100 p-3">
                     <p className="text-[12.5px] text-slate-800">
-                      <span className="font-semibold">{who}</span> completed{" "}
+                      <span className="font-semibold">{who}</span> {label}{" "}
                       <span className="font-semibold">{it.title}</span>
                     </p>
                     <p className="text-[11px] text-slate-500 mt-0.5">{when}</p>
@@ -222,6 +224,66 @@ export default function SocialFeedScreen() {
           )}
         </div>
       </div>
+
+      {/* Shared challenge modal (UI-only for now) */}
+      {showChallenge && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center lg:items-center" onClick={() => setShowChallenge(false)}>
+          <div className="absolute inset-0 bg-black/40" />
+          <div
+            className="relative bg-white rounded-t-3xl lg:rounded-2xl w-full max-w-md p-5 pb-7 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="text-[15px] font-bold text-slate-800 mb-2">Start a shared challenge</h3>
+            <p className="text-[12px] text-slate-500 mb-4">
+              Choose if anyone can join, or if it requires an invite.
+            </p>
+
+            <div className="space-y-2">
+              <button
+                onClick={() => setChallengeVisibility("public")}
+                className={`w-full rounded-xl border px-3.5 py-3 flex items-center justify-between ${
+                  challengeVisibility === "public" ? "border-green-300 bg-green-50" : "border-slate-200 bg-white"
+                }`}
+              >
+                <span className="flex items-center gap-2 text-[12.5px] font-semibold text-slate-800">
+                  <Globe className="h-4 w-4 text-green-700" /> Public
+                </span>
+                <span className="text-[11px] text-slate-500">Anyone can join</span>
+              </button>
+              <button
+                onClick={() => setChallengeVisibility("invite")}
+                className={`w-full rounded-xl border px-3.5 py-3 flex items-center justify-between ${
+                  challengeVisibility === "invite" ? "border-green-300 bg-green-50" : "border-slate-200 bg-white"
+                }`}
+              >
+                <span className="flex items-center gap-2 text-[12.5px] font-semibold text-slate-800">
+                  <Lock className="h-4 w-4 text-slate-700" /> Invite-only
+                </span>
+                <span className="text-[11px] text-slate-500">Requires invite</span>
+              </button>
+            </div>
+
+            <div className="flex gap-2 mt-4">
+              <button
+                onClick={() => setShowChallenge(false)}
+                className="flex-1 bg-slate-100 text-slate-700 rounded-xl py-2.5 text-[13px] font-semibold"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  // Backend challenge objects are not implemented yet; keep UI decision for now.
+                  console.log("Start shared challenge visibility:", challengeVisibility);
+                  setShowChallenge(false);
+                }}
+                className="flex-1 bg-green-600 hover:bg-green-700 text-white rounded-xl py-2.5 text-[13px] font-semibold"
+              >
+                Start
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </AppShell>
   );
 }

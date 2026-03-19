@@ -105,6 +105,13 @@ export async function autoPrioritizeGoals() {
     .orderBy(desc(goals.updatedAt))
 
   const updated: any[] = []
+  const decisions: Array<{
+    id: number
+    alignmentScore: number
+    alignmentCategory: string
+    quadrant: "do" | "plan" | "delegate" | "drop"
+    reason: string
+  }> = []
 
   // Context for better ranking: recent tasks + activities
   let recentTaskTitles: string[] = []
@@ -161,6 +168,8 @@ export async function autoPrioritizeGoals() {
         goalDescription: String(g.description || ""),
         goalCategory: g.category ?? null,
         goalType: g.goalType ?? null,
+        alignmentScore: alignmentScore ?? 50,
+        alignmentCategory: alignmentCategory ?? "medium",
         targetValue: target,
         currentValue: current,
         unit: g.unit ?? null,
@@ -184,16 +193,58 @@ export async function autoPrioritizeGoals() {
       quadrant = fallback.quadrant
       reason = fallback.reason
     }
+    decisions.push({
+      id: Number(g.id),
+      alignmentScore: Number(alignmentScore ?? 50),
+      alignmentCategory: String(alignmentCategory ?? "medium"),
+      quadrant,
+      reason,
+    })
+  }
 
+  // If AI put everything into "plan", force at least one "do" and one "delegate"
+  // so the matrix is informative even without explicit deadlines.
+  const hasDo = decisions.some((d) => d.quadrant === "do")
+  const hasDelegate = decisions.some((d) => d.quadrant === "delegate")
+  const hasNonPlan = decisions.some((d) => d.quadrant !== "plan")
+
+  if (decisions.length >= 2 && !hasNonPlan) {
+    // Pick highest alignment as "do"
+    const sorted = [...decisions].sort((a, b) => (b.alignmentScore ?? 50) - (a.alignmentScore ?? 50))
+    sorted[0].quadrant = "do"
+    sorted[0].reason = "Highest leverage for your mission — do first."
+    // Pick lowest alignment as "delegate" (unless it's the same)
+    const low = sorted[sorted.length - 1]
+    if (low.id !== sorted[0].id) {
+      low.quadrant = "delegate"
+      low.reason = "Lower leverage — delegate/automate if possible."
+    }
+  } else {
+    if (decisions.length >= 2 && !hasDo) {
+      const top = [...decisions].sort((a, b) => (b.alignmentScore ?? 50) - (a.alignmentScore ?? 50))[0]
+      top.quadrant = "do"
+      top.reason = top.reason || "Highest leverage — do first."
+    }
+    if (decisions.length >= 3 && !hasDelegate) {
+      const bottom = [...decisions].sort((a, b) => (a.alignmentScore ?? 50) - (b.alignmentScore ?? 50))[0]
+      if (bottom.quadrant === "plan") {
+        bottom.quadrant = "delegate"
+        bottom.reason = "Lower leverage — delegate/automate if possible."
+      }
+    }
+  }
+
+  // Apply updates
+  for (const d of decisions) {
     const timestamp = new Date()
     const upd = await db.update(goals).set({
-      alignmentScore: alignmentScore ?? g.alignmentScore ?? null,
-      alignmentCategory: alignmentCategory ?? g.alignmentCategory ?? null,
-      priorityQuadrant: quadrant,
-      priorityReason: reason,
+      alignmentScore: d.alignmentScore,
+      alignmentCategory: d.alignmentCategory,
+      priorityQuadrant: d.quadrant,
+      priorityReason: d.reason,
       priorityUpdatedAt: timestamp,
       updatedAt: timestamp,
-    }).where(and(eq(goals.userId, userId), eq(goals.id, g.id))).returning()
+    }).where(and(eq(goals.userId, userId), eq(goals.id, d.id))).returning()
 
     if (upd[0]) updated.push(mapGoal(upd[0] as any))
   }

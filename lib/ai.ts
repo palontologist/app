@@ -196,6 +196,8 @@ export async function analyzeGoalPriority(input: {
   goalDescription?: string
   goalCategory?: string | null
   goalType?: string | null
+  alignmentScore?: number | null
+  alignmentCategory?: string | null
   targetValue?: number | null
   currentValue?: number | null
   unit?: string | null
@@ -213,6 +215,10 @@ Return ONLY valid JSON, no other text.
 User mission: "${input.mission || ""}"
 User vision: "${input.worldVision || ""}"
 User focus areas: "${input.focusAreas || ""}"
+
+Goal alignment (AI-scored):
+- alignment_score: ${input.alignmentScore ?? ""}
+- alignment_category: "${input.alignmentCategory ?? ""}"
 
 Recent tasks: ${(input.recentTaskTitles || []).slice(0, 12).join(" | ")}
 Recent activities: ${(input.recentActivityTitles || []).slice(0, 12).join(" | ")}
@@ -232,8 +238,9 @@ Choose exactly one:
 - "drop": drop/defer (distraction or not aligned now)
 
 Rules:
-- Prefer "plan" over "do" unless there's a real urgency or a strong reason it's the highest leverage now.
+- It's OK to choose "do" even without a deadline if this goal is the single highest leverage for the user's mission right now.
 - If it conflicts with mission/vision or is a distraction, use "drop".
+- If the goal is low-leverage busywork for this user, use "delegate".
 - Keep the reason short (<= 140 chars), actionable.
 
 JSON schema:

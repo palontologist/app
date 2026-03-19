@@ -6,6 +6,7 @@ import {
   db,
   goals,
   goalActivities,
+  tasks,
   now,
   opportunities,
   opportunityUnlockRules,
@@ -143,6 +144,7 @@ export type FollowingFeedItem = {
   name: string | null;
   title: string;
   completedAt: number;
+  kind: "activity" | "task";
 };
 
 export async function getFollowingFeed(limit = 30) {
@@ -180,9 +182,30 @@ export async function getFollowingFeed(limit = 30) {
     .orderBy(desc(goalActivities.completedAt))
     .limit(limit);
 
-  return {
-    success: true as const,
-    items: rows
+  // Also include completed tasks (many users use tasks more than goal activities).
+  const taskRows = await db
+    .select({
+      id: tasks.id,
+      userId: tasks.userId,
+      title: tasks.title,
+      completedAt: tasks.completedAt,
+      handle: userProfiles.handle,
+      name: userProfiles.name,
+    })
+    .from(tasks)
+    .leftJoin(userProfiles, eq(userProfiles.userId, tasks.userId))
+    .where(
+      and(
+        inArray(tasks.userId, ids),
+        eq(tasks.completed, true),
+        sql`${tasks.completedAt} is not null`
+      )
+    )
+    .orderBy(desc(tasks.completedAt))
+    .limit(limit);
+
+  const merged: FollowingFeedItem[] = [
+    ...rows
       .filter((r: any) => r.completedAt != null)
       .map((r: any) => ({
         id: r.id as number,
@@ -191,7 +214,26 @@ export async function getFollowingFeed(limit = 30) {
         name: (r.name as string | null) ?? null,
         title: r.title as string,
         completedAt: r.completedAt as number,
+        kind: "activity" as const,
       })),
+    ...taskRows
+      .filter((r: any) => r.completedAt != null)
+      .map((r: any) => ({
+        id: r.id as number,
+        userId: r.userId as string,
+        handle: (r.handle as string | null) ?? null,
+        name: (r.name as string | null) ?? null,
+        title: r.title as string,
+        completedAt: r.completedAt as number,
+        kind: "task" as const,
+      })),
+  ]
+    .sort((a, b) => b.completedAt - a.completedAt)
+    .slice(0, limit);
+
+  return {
+    success: true as const,
+    items: merged,
   };
 }
 
@@ -332,9 +374,8 @@ export async function getActiveProfiles(limit = 12) {
     .where(and(eq(goals.userId, userId), eq(goals.archived, false), sql`${goals.category} is not null`));
   const myCats = Array.from(new Set(myCatsRows.map((r: any) => r.category).filter(Boolean))) as string[];
 
-  // Active = completed an activity recently. We'll compute shared categories in JS to avoid
-  // placeholder binding issues with raw SQL inside aggregate expressions (libsql strict binding).
-  const rows = await db
+  // Active = completed an activity OR a task recently.
+  const activityRows = await db
     .select({
       userId: userProfiles.userId,
       handle: userProfiles.handle,
@@ -352,9 +393,46 @@ export async function getActiveProfiles(limit = 12) {
         sql`${userProfiles.userId} != ${userId}`
       )
     )
-    .groupBy(userProfiles.userId)
-    .orderBy(sql`max(${goalActivities.completedAt}) desc`)
-    .limit(limit);
+    .groupBy(userProfiles.userId);
+
+  const taskRows = await db
+    .select({
+      userId: userProfiles.userId,
+      handle: userProfiles.handle,
+      name: userProfiles.name,
+      lastCompletedAt: sql<number>`max(${tasks.completedAt})`.as("lastCompletedAt"),
+    })
+    .from(tasks)
+    .innerJoin(userProfiles, eq(userProfiles.userId, tasks.userId))
+    .where(
+      and(
+        eq(tasks.completed, true),
+        sql`${tasks.completedAt} is not null`,
+        sql`${tasks.completedAt} >= ${sinceMs}`,
+        eq(userProfiles.discoverable, true),
+        sql`${userProfiles.userId} != ${userId}`
+      )
+    )
+    .groupBy(userProfiles.userId);
+
+  const byUser = new Map<string, { userId: string; handle: string | null; name: string | null; lastCompletedAt: number }>();
+  for (const r of [...activityRows, ...taskRows] as any[]) {
+    const u = String(r.userId);
+    const prev = byUser.get(u);
+    const ts = Number(r.lastCompletedAt ?? 0);
+    if (!prev || ts > prev.lastCompletedAt) {
+      byUser.set(u, {
+        userId: u,
+        handle: (r.handle as string | null) ?? null,
+        name: (r.name as string | null) ?? null,
+        lastCompletedAt: ts,
+      });
+    }
+  }
+
+  const rows = [...byUser.values()]
+    .sort((a, b) => b.lastCompletedAt - a.lastCompletedAt)
+    .slice(0, limit);
 
   // If we used myCats placeholders, supply args via raw isn't possible with drizzle-orm here; fallback: sharedCategories=0.
   // Keep MVP simple: compute shared categories in JS if categories exist.
