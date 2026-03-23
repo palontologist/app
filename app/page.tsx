@@ -18,11 +18,11 @@ export default async function LandingPage() {
   }
 
   return (
-    <main className="relative min-h-dvh bg-white text-foreground">
+    <main className="relative min-h-dvh bg-white text-slate-900">
       {/* Navigation */}
       <nav className="sticky top-0 z-50 border-b border-border/40 bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/60">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4 sm:px-8">
-          <div className="text-xl font-bold text-primary">Greta</div>
+          <div className="text-xl font-bold text-slate-900">Greta</div>
           <div className="hidden items-center gap-8 md:flex">
             <a href="#" className="text-sm font-medium text-muted-foreground hover:text-foreground">Product</a>
             <a href="#how-it-works" className="text-sm font-medium text-muted-foreground hover:text-foreground">How it works</a>
@@ -312,21 +312,21 @@ export default async function LandingPage() {
       </section>
 
       {/* Final CTA */}
-      <section className="px-6 py-16 sm:px-8 sm:py-24 bg-primary text-primary-foreground">
+      <section className="px-6 py-16 sm:px-8 sm:py-24 bg-[#111827] text-white">
         <div className="mx-auto max-w-3xl text-center">
           <h2 className="text-4xl font-bold mb-4">Know your value before everyone else does.</h2>
-          <p className="text-lg opacity-90 mb-8">If you're a freelancer or early-stage founder, Greta shows you exactly how your work compounds into revenue, valuation, and impact.</p>
+          <p className="mb-8 text-lg text-white/90">If you're a freelancer or early-stage founder, Greta shows you exactly how your work compounds into revenue, valuation, and impact.</p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <input
               type="email"
               placeholder="your@email.com"
-              className="px-4 py-3 rounded-lg text-foreground flex-1 max-w-xs"
+              className="max-w-xs flex-1 rounded-lg border border-white/30 bg-white px-4 py-3 text-slate-900 placeholder:text-slate-500"
             />
-            <select className="px-4 py-3 rounded-lg text-foreground">
+            <select className="rounded-lg border border-white/30 bg-white px-4 py-3 text-slate-900">
               <option>I'm a Freelancer</option>
               <option>I'm a Founder</option>
             </select>
-            <Button size="lg" className="bg-white text-primary hover:bg-gray-100">
+            <Button size="lg" className="bg-white text-slate-900 hover:bg-gray-100">
               Get early access
             </Button>
           </div>
