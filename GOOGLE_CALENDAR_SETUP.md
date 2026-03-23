@@ -12,15 +12,20 @@ This guide will help you set up and troubleshoot the Google Calendar integration
 
 You need to configure these environment variables:
 
+**For Local Development:**
 ```bash
 GOOGLE_CLIENT_ID=your-client-id.apps.googleusercontent.com
 GOOGLE_CLIENT_SECRET=your-client-secret
-GOOGLE_REDIRECT_URI=http://localhost:3000/api/google/auth/callback  # For local dev
-# OR
-GOOGLE_REDIRECT_URI=https://your-domain.com/api/google/auth/callback  # For production
-NEXT_PUBLIC_APP_URL=http://localhost:3000  # For local dev
-# OR
-NEXT_PUBLIC_APP_URL=https://your-domain.com  # For production
+GOOGLE_REDIRECT_URI=http://localhost:3000/api/google/auth/callback
+NEXT_PUBLIC_APP_URL=http://localhost:3000
+```
+
+**For Production:**
+```bash
+GOOGLE_CLIENT_ID=your-client-id.apps.googleusercontent.com
+GOOGLE_CLIENT_SECRET=your-client-secret
+GOOGLE_REDIRECT_URI=https://your-domain.com/api/google/auth/callback
+NEXT_PUBLIC_APP_URL=https://your-domain.com
 ```
 
 ## Step-by-Step Setup
