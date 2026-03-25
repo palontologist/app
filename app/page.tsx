@@ -42,10 +42,10 @@ export default async function LandingPage() {
             {/* Left Content */}
             <div className="space-y-6">
               <h1 className="text-5xl font-bold tracking-tight sm:text-6xl text-balance">
-                Turn your calendar into cash and equity.
+               Momentuntum is the new currency for people building something that matters.
               </h1>
               <p className="text-xl text-muted-foreground leading-relaxed">
-                Greta is a value OS for freelancers and founders. It turns your meetings, deep work, and payments into a live story of how your work is compounding into revenue, valuation, and impact.
+                Track what your work is worth. Connect with people building toward the same goals. Unlock the opportunities that match where you're going.
               </p>
               <div className="flex flex-col gap-3 pt-4 sm:flex-row">
                 <Link href="/sign-in?redirect_url=/onboarding">
