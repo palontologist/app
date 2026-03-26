@@ -42,7 +42,7 @@ export default async function LandingPage() {
             {/* Left Content */}
             <div className="space-y-6">
               <h1 className="text-5xl font-bold tracking-tight sm:text-6xl text-balance">
-               Momentuntum is the new currency for people building something that matters.
+               Momentum is the new currency for people building something that matters.
               </h1>
               <p className="text-xl text-muted-foreground leading-relaxed">
                 Track what your work is worth. Connect with people building toward the same goals. Unlock the opportunities that match where you're going.
