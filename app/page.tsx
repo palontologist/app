@@ -1,5 +1,5 @@
 import Link from "next/link"
-import { ArrowRight, Check } from "lucide-react"
+import { ArrowRight, Check, DollarSign, Users, TrendingUp } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { auth } from "@clerk/nextjs/server"
 import { db, userProfiles } from "@/lib/db"
@@ -18,93 +18,87 @@ export default async function LandingPage() {
   }
 
   return (
-    <main className="relative min-h-dvh bg-white text-slate-900">
-      {/* Navigation */}
-      <nav className="sticky top-0 z-50 border-b border-border/40 bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/60">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4 sm:px-8">
-          <div className="text-xl font-bold text-slate-900">Greta</div>
-          <div className="hidden items-center gap-8 md:flex">
-            <a href="#" className="text-sm font-medium text-muted-foreground hover:text-foreground">Product</a>
-            <a href="#how-it-works" className="text-sm font-medium text-muted-foreground hover:text-foreground">How it works</a>
-            <a href="#pricing" className="text-sm font-medium text-muted-foreground hover:text-foreground">Pricing</a>
-            <a href="#faq" className="text-sm font-medium text-muted-foreground hover:text-foreground">FAQ</a>
+    <main className="min-h-dvh bg-white text-slate-900">
+      <nav className="sticky top-0 z-50 bg-white/80 backdrop-blur border-b border-slate-100">
+        <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
+          <span className="text-lg font-semibold tracking-tight">greta</span>
+          <div className="flex items-center gap-6">
+            <Link href="/pricing" className="text-sm text-slate-500 hover:text-slate-900">Pricing</Link>
+            <Link href="/sign-in" className="text-sm text-slate-500 hover:text-slate-900">Login</Link>
           </div>
-          <Link href="/sign-in">
-            <Button variant="ghost" size="sm">Login</Button>
-          </Link>
         </div>
       </nav>
 
-      {/* Hero Section */}
-      <section className="relative px-6 py-16 sm:px-8 sm:py-24">
-        <div className="mx-auto max-w-7xl">
-          <div className="grid gap-12 lg:grid-cols-2 lg:gap-8 items-center">
-            {/* Left Content */}
-            <div className="space-y-6">
-              <h1 className="text-5xl font-bold tracking-tight sm:text-6xl text-balance">
-               Momentum is the new currency for people building something that matters.
+      <section className="py-20 md:py-32">
+        <div className="max-w-6xl mx-auto px-6">
+          <div className="grid lg:grid-cols-2 gap-16 items-center">
+            <div className="max-w-xl">
+              <p className="text-xs font-medium text-green-600 uppercase tracking-wider mb-4">Value Intelligence</p>
+              <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight text-slate-900 mb-6">
+                That client is paying you $12/hour. Not $60.
               </h1>
-              <p className="text-xl text-muted-foreground leading-relaxed">
-                Track what your work is worth. Connect with people building toward the same goals. Unlock the opportunities that match where you're going.
+              <p className="text-lg text-slate-500 leading-relaxed mb-8">
+                You bill $60/hour. But after meetings, emails, and scope creep — one client pays you less than minimum wage. Greta shows you which clients cost you money, so you can fix it.
               </p>
-              <div className="flex flex-col gap-3 pt-4 sm:flex-row">
+              <div className="flex gap-4">
                 <Link href="/sign-in?redirect_url=/onboarding">
-                  <Button size="lg" className="bg-[#28A745] hover:bg-[#23923d] h-12 px-8">
-                    Get early access
-                    <ArrowRight className="ml-2 h-4 w-4" />
+                  <Button className="bg-green-600 hover:bg-green-700 h-11 px-6">
+                    Find my real rates
+                    <ArrowRight className="ml-2 w-4 h-4" />
                   </Button>
                 </Link>
-
               </div>
-              <p className="text-sm text-muted-foreground">
-                Built for solo builders, indie agencies, and early-stage teams.
+              <p className="text-sm text-slate-400 mt-4">
+                For freelance designers, consultants & agencies
               </p>
             </div>
 
-            {/* Right Content - Hero Dashboard Mock */}
-            <div className="rounded-2xl border border-border bg-card p-6 shadow-lg">
-              <div className="space-y-4">
-                <div className="text-sm font-semibold text-muted-foreground">This Month</div>
+            <div className="bg-slate-50 rounded-2xl p-6 md:p-8 border border-slate-100">
+              <div className="space-y-6">
+                <div>
+                  <p className="text-xs font-medium text-slate-400 uppercase tracking-wider mb-1">Your Real Rate</p>
+                  <div className="flex items-baseline gap-3">
+                    <span className="text-3xl font-bold text-slate-900">$12/hr</span>
+                    <span className="text-sm text-red-600 font-medium">80% below rate</span>
+                  </div>
+                </div>
+
                 <div className="grid grid-cols-3 gap-4">
                   <div>
-                    <div className="text-sm text-muted-foreground">Revenue</div>
-                    <div className="mt-1 flex items-baseline gap-1">
-                      <div className="text-2xl font-bold">$7,420</div>
-                      <div className="text-sm text-green-600">+32%</div>
-                    </div>
+                    <p className="text-xs text-slate-400">Billed</p>
+                    <p className="text-lg font-semibold text-slate-900">$3,600</p>
                   </div>
                   <div>
-                    <div className="text-sm text-muted-foreground">Hourly Rate</div>
-                    <div className="mt-1 text-2xl font-bold">$142/hr</div>
+                    <p className="text-xs text-slate-400">Actual</p>
+                    <p className="text-lg font-semibold text-red-600">$960</p>
                   </div>
                   <div>
-                    <div className="text-sm text-muted-foreground">Equity Value</div>
-                    <div className="mt-1 text-2xl font-bold">$38k</div>
+                    <p className="text-xs text-slate-400">Hours</p>
+                    <p className="text-lg font-semibold text-slate-900">80h</p>
                   </div>
                 </div>
 
-                <div className="border-t border-border pt-4">
-                  <div className="text-xs font-semibold text-muted-foreground mb-3">Time by Client vs Revenue</div>
+                <div className="border-t border-slate-200 pt-4">
+                  <p className="text-xs font-medium text-slate-400 uppercase tracking-wider mb-3">Client Breakdown</p>
                   <div className="space-y-2">
-                    <div className="flex items-center justify-between rounded-lg bg-secondary/50 p-3">
-                      <div className="text-sm">Client A</div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs text-muted-foreground">12.5h → $1,875</span>
-                        <span className="text-xs font-semibold text-red-600">Underpriced</span>
+                    <div className="flex items-center justify-between p-3 bg-red-50 rounded-lg border border-red-100">
+                      <div>
+                        <span className="text-sm text-slate-700">Acme Corp</span>
+                        <p className="text-xs text-slate-400">$60/hr billed × 30h</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-sm font-semibold text-red-600">$12/hr effective</p>
+                        <p className="text-xs text-slate-400">$360 → $360</p>
                       </div>
                     </div>
-                    <div className="flex items-center justify-between rounded-lg bg-secondary/50 p-3">
-                      <div className="text-sm">Client B</div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs text-muted-foreground">8h → $1,600</span>
-                        <span className="text-xs font-semibold text-green-600">On target</span>
+                    <div className="flex items-center justify-between p-3 bg-white rounded-lg border border-slate-100">
+                      <div>
+                        <span className="text-sm text-slate-700">Startup X</span>
+                        <p className="text-xs text-slate-400">$60/hr billed × 8h</p>
                       </div>
-                    </div>
-                    <div className="flex items-center justify-between rounded-lg bg-secondary/50 p-3">
-                      <div className="text-sm">Startup X</div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs text-muted-foreground">20h • Equity</span>
-                        <span className="text-xs font-semibold">~$24k</span>
+                      <div className="text-right">
+                        <p className="text-sm font-semibold text-green-600">$185/hr effective</p>
+                        <p className="text-xs text-slate-400">$480 → $1,480</p>
                       </div>
                     </div>
                   </div>
@@ -115,227 +109,170 @@ export default async function LandingPage() {
         </div>
       </section>
 
-      {/* Who it's for */}
-      <section className="border-t border-border px-6 py-16 sm:px-8 sm:py-24 bg-secondary/20">
-        <div className="mx-auto max-w-7xl">
-          <div className="grid gap-8 md:grid-cols-2">
-            {/* Freelancers Card */}
-            <div className="rounded-2xl border border-border bg-white p-8">
-              <h3 className="text-2xl font-bold mb-4">Freelancers & small studios</h3>
-              <ul className="space-y-3 mb-6">
-                <li className="flex items-start gap-3">
-                  <Check className="h-5 w-5 text-[#28A745] shrink-0 mt-0.5" />
-                  <span className="text-muted-foreground">Auto-convert calendar + tasks into billable hours</span>
-                </li>
-                <li className="flex items-start gap-3">
-                  <Check className="h-5 w-5 text-[#28A745] shrink-0 mt-0.5" />
-                  <span className="text-muted-foreground">See which clients <strong>actually pay for your time</strong></span>
-                </li>
-                <li className="flex items-start gap-3">
-                  <Check className="h-5 w-5 text-[#28A745] shrink-0 mt-0.5" />
-                  <span className="text-muted-foreground">Get smart <strong>pricing suggestions</strong> so you stop undercharging</span>
-                </li>
-              </ul>
-            </div>
-
-            {/* Founders Card */}
-            <div className="rounded-2xl border border-border bg-white p-8">
-              <h3 className="text-2xl font-bold mb-4">Early-stage founders & builders</h3>
-              <ul className="space-y-3 mb-6">
-                <li className="flex items-start gap-3">
-                  <Check className="h-5 w-5 text-[#28A745] shrink-0 mt-0.5" />
-                  <span className="text-muted-foreground">See where your week really goes: product, sales, fundraising, ops</span>
-                </li>
-                <li className="flex items-start gap-3">
-                  <Check className="h-5 w-5 text-[#28A745] shrink-0 mt-0.5" />
-                  <span className="text-muted-foreground">Map time to <strong>revenue, runway, and valuation</strong></span>
-                </li>
-                <li className="flex items-start gap-3">
-                  <Check className="h-5 w-5 text-[#28A745] shrink-0 mt-0.5" />
-                  <span className="text-muted-foreground">Tell a clear story to cofounders, advisors, and investors</span>
-                </li>
-              </ul>
-            </div>
+      <section className="py-20 bg-slate-50">
+        <div className="max-w-6xl mx-auto px-6">
+          <div className="text-center mb-12">
+            <h2 className="text-2xl md:text-3xl font-bold text-slate-900 mb-4">
+              The moment that changes everything
+            </h2>
+            <p className="text-lg text-slate-500 max-w-2xl mx-auto">
+              Not a feature. A revelation. See which clients are secretly losing you money.
+            </p>
           </div>
-          <p className="text-center mt-8 text-muted-foreground">Same engine, two lenses. Greta adapts to how you work.</p>
-        </div>
-      </section>
 
-      {/* How it works */}
-      <section id="how-it-works" className="px-6 py-16 sm:px-8 sm:py-24">
-        <div className="mx-auto max-w-7xl">
-          <h2 className="text-4xl font-bold text-center mb-16">How Greta works</h2>
-          <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-4">
-            {/* Step 1 */}
-            <div className="space-y-4">
-              <div className="rounded-full w-12 h-12 bg-[#28A745]/10 flex items-center justify-center">
-                <span className="font-bold text-[#28A745]">1</span>
+          <div className="grid md:grid-cols-3 gap-6">
+            <div className="bg-white p-6 rounded-xl border border-slate-100">
+              <div className="w-10 h-10 bg-red-50 rounded-lg flex items-center justify-center mb-4">
+                <DollarSign className="w-5 h-5 text-red-600" />
               </div>
-              <h3 className="text-xl font-semibold">Connect your work graph</h3>
-              <p className="text-muted-foreground">Sync your calendar, tasks, and payments (Stripe / PayPal / M-Pesa / bank export). Greta builds a single view of your time and money.</p>
+              <h3 className="font-semibold text-slate-900 mb-2">The $12/hr Client</h3>
+              <p className="text-sm text-slate-500">
+                You charge $60 but after all the unpaid work, you're making less than a fast food worker.
+              </p>
             </div>
-
-            {/* Step 2 */}
-            <div className="space-y-4">
-              <div className="rounded-full w-12 h-12 bg-[#28A745]/10 flex items-center justify-center">
-                <span className="font-bold text-[#28A745]">2</span>
+            <div className="bg-white p-6 rounded-xl border border-slate-100">
+              <div className="w-10 h-10 bg-green-50 rounded-lg flex items-center justify-center mb-4">
+                <TrendingUp className="w-5 h-5 text-green-600" />
               </div>
-              <h3 className="text-xl font-semibold">Tag projects, clients, and bets</h3>
-              <p className="text-muted-foreground">Tag events and work blocks to clients, projects, or company 'bets'. Greta learns your patterns so future sessions auto-tag.</p>
+              <h3 className="font-semibold text-slate-900 mb-2">The Raise Signal</h3>
+              <p className="text-sm text-slate-500">
+                Data-backed proof that Client B can afford 40% more. Don't guess — know.
+              </p>
             </div>
-
-            {/* Step 3 */}
-            <div className="space-y-4">
-              <div className="rounded-full w-12 h-12 bg-[#28A745]/10 flex items-center justify-center">
-                <span className="font-bold text-[#28A745]">3</span>
+            <div className="bg-white p-6 rounded-xl border border-slate-100">
+              <div className="w-10 h-10 bg-blue-50 rounded-lg flex items-center justify-center mb-4">
+                <Users className="w-5 h-5 text-blue-600" />
               </div>
-              <h3 className="text-xl font-semibold">See how your work compounds</h3>
-              <p className="text-muted-foreground">Greta calculates effective hourly rate, value per project, and 'value density' of your week.</p>
-            </div>
-
-            {/* Step 4 */}
-            <div className="space-y-4">
-              <div className="rounded-full w-12 h-12 bg-[#28A745]/10 flex items-center justify-center">
-                <span className="font-bold text-[#28A745]">4</span>
-              </div>
-              <h3 className="text-xl font-semibold">Adjust pricing, scope, and focus</h3>
-              <p className="text-muted-foreground">Use Greta's insights to raise rates, renegotiate retainers, cut low-value work, and double down on what compounds.</p>
+              <h3 className="font-semibold text-slate-900 mb-2">Keep or Fire?</h3>
+              <p className="text-sm text-slate-500">
+                Finally have the data to make objective decisions about who deserves your time.
+              </p>
             </div>
           </div>
         </div>
       </section>
 
-      {/* Social Proof */}
-      <section className="border-t border-border px-6 py-16 sm:px-8 sm:py-24 bg-secondary/20">
-        <div className="mx-auto max-w-7xl">
-          <h2 className="text-4xl font-bold text-center mb-16">Built with the first 50 builders</h2>
-          <div className="grid gap-6 md:grid-cols-3">
-            <div className="rounded-lg border border-border bg-white p-6">
-              <p className="text-muted-foreground mb-4">"I stopped doing 'free strategy calls' that never converted — Greta showed me I was bleeding 10+ hours/month."</p>
-              <p className="text-sm font-semibold">Freelance designer</p>
+      <section id="how-it-works" className="py-20">
+        <div className="max-w-4xl mx-auto px-6">
+          <p className="text-xs font-medium text-green-600 uppercase tracking-wider text-center mb-3">How it works</p>
+          <h2 className="text-3xl font-bold text-slate-900 text-center mb-12">Three steps to clarity</h2>
+
+          <div className="space-y-6">
+            <div className="flex gap-4">
+              <div className="w-8 h-8 bg-green-600 text-white rounded-full flex items-center justify-center flex-shrink-0 font-semibold">1</div>
+              <div>
+                <h3 className="font-semibold text-slate-900">Connect your calendar</h3>
+                <p className="text-sm text-slate-500">Google Calendar integration tracks every client meeting automatically.</p>
+              </div>
             </div>
-            <div className="rounded-lg border border-border bg-white p-6">
-              <p className="text-muted-foreground mb-4">"Helped us show an investor exactly how our time turns into ARR."</p>
-              <p className="text-sm font-semibold">SaaS founder</p>
+            <div className="flex gap-4">
+              <div className="w-8 h-8 bg-green-600 text-white rounded-full flex items-center justify-center flex-shrink-0 font-semibold">2</div>
+              <div>
+                <h3 className="font-semibold text-slate-900">Link payments (optional)</h3>
+                <p className="text-sm text-slate-500">Connect Stripe or upload invoices. See real money in vs. time spent.</p>
+              </div>
             </div>
-            <div className="rounded-lg border border-border bg-white p-6">
-              <p className="text-muted-foreground mb-4">"Finally realized which client was sucking half my week for 20% of the revenue."</p>
-              <p className="text-sm font-semibold">Agency owner</p>
+            <div className="flex gap-4">
+              <div className="w-8 h-8 bg-green-600 text-white rounded-full flex items-center justify-center flex-shrink-0 font-semibold">3</div>
+              <div>
+                <h3 className="font-semibold text-slate-900">Get the revelation</h3>
+                <p className="text-sm text-slate-500">See your effective hourly rate per client. Spot underpriced work instantly.</p>
+              </div>
             </div>
           </div>
         </div>
       </section>
 
-      {/* Pricing */}
-      <section id="pricing" className="px-6 py-16 sm:px-8 sm:py-24">
-        <div className="mx-auto max-w-7xl">
-          <h2 className="text-4xl font-bold text-center mb-4">Simple pricing that respects your runway</h2>
-          <p className="text-center text-muted-foreground mb-16">Founding users get these prices locked in for life.</p>
-          <div className="grid gap-6 md:grid-cols-2 max-w-2xl mx-auto">
-            <div className="rounded-2xl border border-border bg-white p-8">
+      <section id="pricing" className="py-20 bg-slate-50">
+        <div className="max-w-4xl mx-auto px-6">
+          <p className="text-xs font-medium text-green-600 uppercase tracking-wider text-center mb-3">Pricing</p>
+          <h2 className="text-3xl font-bold text-slate-900 text-center mb-12">Simple pricing, locked in</h2>
+
+          <div className="grid md:grid-cols-2 gap-6 max-w-2xl mx-auto">
+            <div className="bg-white p-8 rounded-2xl border border-slate-200">
               <div className="mb-6">
-                <h3 className="text-2xl font-bold">Solo</h3>
-                <p className="text-sm text-muted-foreground">For freelancers &amp; solo builders</p>
+                <h3 className="text-lg font-semibold text-slate-900">Solo</h3>
+                <p className="text-sm text-slate-500">For freelancers</p>
               </div>
               <div className="mb-6">
-                <div className="text-4xl font-bold">$19<span className="text-lg text-muted-foreground">/mo</span></div>
+                <span className="text-4xl font-bold text-slate-900">$19</span>
+                <span className="text-slate-500">/month</span>
               </div>
               <ul className="space-y-3 mb-8">
-                <li className="text-sm text-muted-foreground flex items-start gap-2">
-                  <Check className="h-5 w-5 text-[#28A745] shrink-0 mt-0.5" />
-                  <span>Up to 5 active clients/projects</span>
+                <li className="flex items-center gap-2 text-sm text-slate-600">
+                  <Check className="w-4 h-4 text-green-600" />
+                  Up to 5 clients
                 </li>
-                <li className="text-sm text-muted-foreground flex items-start gap-2">
-                  <Check className="h-5 w-5 text-[#28A745] shrink-0 mt-0.5" />
-                  <span>Calendar + payments mapping</span>
+                <li className="flex items-center gap-2 text-sm text-slate-600">
+                  <Check className="w-4 h-4 text-green-600" />
+                  Calendar sync
                 </li>
-                <li className="text-sm text-muted-foreground flex items-start gap-2">
-                  <Check className="h-5 w-5 text-[#28A745] shrink-0 mt-0.5" />
-                  <span>Underpriced client alerts</span>
+                <li className="flex items-center gap-2 text-sm text-slate-600">
+                  <Check className="w-4 h-4 text-green-600" />
+                  Effective rate calculation
+                </li>
+                <li className="flex items-center gap-2 text-sm text-slate-600">
+                  <Check className="w-4 h-4 text-green-600" />
+                  Underpriced alerts
                 </li>
               </ul>
               <Link href="/sign-in?redirect_url=/onboarding">
-                <Button className="w-full bg-[#28A745] hover:bg-[#23923d]">Get early access</Button>
+                <Button className="w-full bg-slate-900 hover:bg-slate-800 text-white">Get started</Button>
               </Link>
             </div>
-            <div className="rounded-2xl border-2 border-[#28A745] bg-white p-8 relative">
-              <div className="absolute -top-3 left-4 bg-white px-2">
-                <span className="text-xs font-semibold text-[#28A745]">COMING SOON</span>
+
+            <div className="bg-slate-900 p-8 rounded-2xl">
+              <div className="mb-6">
+                <h3 className="text-lg font-semibold text-white">Studio</h3>
+                <p className="text-sm text-slate-400">For small teams</p>
               </div>
               <div className="mb-6">
-                <h3 className="text-2xl font-bold">Studio</h3>
-                <p className="text-sm text-muted-foreground">For small teams</p>
-              </div>
-              <div className="mb-6">
-                <div className="text-4xl font-bold">$49<span className="text-lg text-muted-foreground">/mo</span></div>
-                <p className="text-sm text-muted-foreground">+ $10/user</p>
+                <span className="text-4xl font-bold text-white">$49</span>
+                <span className="text-slate-400">/month</span>
               </div>
               <ul className="space-y-3 mb-8">
-                <li className="text-sm text-muted-foreground flex items-start gap-2">
-                  <Check className="h-5 w-5 text-[#28A745] shrink-0 mt-0.5" />
-                  <span>Shared dashboards across clients/projects</span>
+                <li className="flex items-center gap-2 text-sm text-slate-300">
+                  <Check className="w-4 h-4 text-green-400" />
+                  Up to 15 clients
                 </li>
-                <li className="text-sm text-muted-foreground flex items-start gap-2">
-                  <Check className="h-5 w-5 text-[#28A745] shrink-0 mt-0.5" />
-                  <span>Team time + value analytics</span>
+                <li className="flex items-center gap-2 text-sm text-slate-300">
+                  <Check className="w-4 h-4 text-green-400" />
+                  Team dashboards
+                </li>
+                <li className="flex items-center gap-2 text-sm text-slate-300">
+                  <Check className="w-4 h-4 text-green-400" />
+                  Revenue analytics
+                </li>
+                <li className="flex items-center gap-2 text-sm text-slate-300">
+                  <Check className="w-4 h-4 text-green-400" />
+                  Priority support
                 </li>
               </ul>
-              <Button variant="outline" className="w-full">Join waitlist</Button>
+              <Link href="/sign-in?redirect_url=/onboarding">
+                <Button className="w-full bg-white text-slate-900 hover:bg-slate-100">Get started</Button>
+              </Link>
             </div>
           </div>
         </div>
       </section>
 
-      {/* FAQ */}
-      <section id="faq" className="border-t border-border px-6 py-16 sm:px-8 sm:py-24 bg-secondary/20">
-        <div className="mx-auto max-w-3xl">
-          <h2 className="text-4xl font-bold text-center mb-16">Frequently asked questions</h2>
-          <div className="space-y-6">
-            <div className="rounded-lg border border-border bg-white p-6">
-              <h3 className="font-semibold text-lg mb-2">Do I have to track time manually?</h3>
-              <p className="text-muted-foreground">No. Greta starts with your calendar and tasks; you can refine tags, but you don't have to start a timer.</p>
-            </div>
-            <div className="rounded-lg border border-border bg-white p-6">
-              <h3 className="font-semibold text-lg mb-2">How does Greta know my revenue and payments?</h3>
-              <p className="text-muted-foreground">Connect Stripe / PayPal / M-Pesa / or CSV exports. Greta links payments to clients/projects and overlays them on your time.</p>
-            </div>
-            <div className="rounded-lg border border-border bg-white p-6">
-              <h3 className="font-semibold text-lg mb-2">Will Greta replace my invoicing tool?</h3>
-              <p className="text-muted-foreground">At first, Greta will <strong>suggest invoices and pricing</strong> that you can export to your existing tools. Later, direct invoicing may come.</p>
-            </div>
-            <div className="rounded-lg border border-border bg-white p-6">
-              <h3 className="font-semibold text-lg mb-2">Is my data secure?</h3>
-              <p className="text-muted-foreground">Yes. We use encryption, read-only connections to your services, and never store sensitive payment data.</p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Final CTA */}
-      <section className="px-6 py-16 sm:px-8 sm:py-24 bg-[#111827] text-white">
-        <div className="mx-auto max-w-3xl text-center">
-          <h2 className="text-4xl font-bold mb-4">Know your value before everyone else does.</h2>
-          <p className="mb-8 text-lg text-white/90">If you're a freelancer or early-stage founder, Greta shows you exactly how your work compounds into revenue, valuation, and impact.</p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <input
-              type="email"
-              placeholder="your@email.com"
-              className="max-w-xs flex-1 rounded-lg border border-white/30 bg-white px-4 py-3 text-slate-900 placeholder:text-slate-500"
-            />
-            <select className="rounded-lg border border-white/30 bg-white px-4 py-3 text-slate-900">
-              <option>I'm a Freelancer</option>
-              <option>I'm a Founder</option>
-            </select>
-            <Button size="lg" className="bg-white text-slate-900 hover:bg-gray-100">
-              Get early access
+      <section className="py-20 bg-slate-900 text-white">
+        <div className="max-w-2xl mx-auto px-6 text-center">
+          <h2 className="text-3xl font-bold mb-4">Know your numbers.</h2>
+          <p className="text-slate-400 mb-8">
+            Stop guessing which clients are worth it.
+          </p>
+          <Link href="/sign-in?redirect_url=/onboarding">
+            <Button size="lg" className="bg-white text-slate-900 hover:bg-slate-100">
+              Get started
+              <ArrowRight className="ml-2 w-4 h-4" />
             </Button>
-          </div>
+          </Link>
         </div>
       </section>
 
-      {/* Footer */}
-      <footer className="border-t border-border px-6 py-8 sm:px-8 text-center text-sm text-muted-foreground">
-        <p>© 2026 Greta. Built for value-driven builders.</p>
+      <footer className="py-8 text-center text-sm text-slate-400">
+        <p>&copy; 2026 greta. Value intelligence for freelancers.</p>
       </footer>
     </main>
   )

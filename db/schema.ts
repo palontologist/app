@@ -374,3 +374,49 @@ export const revenueImpact = sqliteTable("revenue_impact", {
   metadata: text("metadata"), // JSON string
   createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().default(sql`(unixepoch() * 1000)`),
 });
+
+// Enterprise Funds table
+export const funds = sqliteTable("funds", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  organizationId: text("organization_id").notNull().unique(),
+  name: text("name").notNull(),
+  thesis: text("thesis"),
+  sdgTargets: text("sdg_targets"),
+  plan: text("plan").default("studio"),
+  seatLimit: integer("seat_limit"),
+  seatsUsed: integer("seats_used").default(0),
+  ssoProvider: text("sso_provider"), // "okta" | "azure" | "google" | "custom"
+  ssoEntityId: text("sso_entity_id"),
+  ssoSsoUrl: text("sso_sso_url"),
+  ssoCertificate: text("sso_certificate"),
+  apiKey: text("api_key"),
+  apiKeyEnabled: integer("api_key_enabled", { mode: "boolean" }).default(false),
+  slaTier: text("sla_tier"), // "standard" | "priority" | "dedicated"
+  createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().default(sql`(unixepoch() * 1000)`),
+  updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull().default(sql`(unixepoch() * 1000)`),
+});
+
+// Portfolio companies: Companies in fund portfolio
+export const portfolioCompanies = sqliteTable("portfolio_companies", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  fundId: integer("fund_id").notNull(),
+  name: text("name").notNull(),
+  sector: text("sector"),
+  sdgAlignment: integer("sdg_alignment").default(0),
+  website: text("website"),
+  notes: text("notes"),
+  createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().default(sql`(unixepoch() * 1000)`),
+  updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull().default(sql`(unixepoch() * 1000)`),
+});
+
+// Portfolio activities: Activity log per company
+export const portfolioActivities = sqliteTable("portfolio_activities", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  companyId: integer("company_id").notNull(),
+  date: text("date").notNull(),
+  activityType: text("activity_type").notNull(),
+  hours: integer("hours").notNull(),
+  sdgCategory: text("sdg_category"),
+  description: text("description"),
+  createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().default(sql`(unixepoch() * 1000)`),
+});

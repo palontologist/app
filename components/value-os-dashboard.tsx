@@ -25,6 +25,7 @@ import {
   getPayments,
   getTimeEntries,
   getEquityBets,
+  getClientROI,
   createClient,
   createPayment,
   createTimeEntry,
@@ -372,23 +373,26 @@ export function ValueOSDashboard() {
   const [paymentsData, setPaymentsData] = React.useState<any[]>([])
   const [timeData, setTimeData] = React.useState<any[]>([])
   const [equityData, setEquityData] = React.useState<any[]>([])
+  const [clientROI, setClientROI] = React.useState<any[]>([])
   const [loading, setLoading] = React.useState(true)
 
   const loadData = async () => {
     setLoading(true)
     try {
-      const [sumResult, clResult, payResult, timeResult, eqResult] = await Promise.all([
+      const [sumResult, clResult, payResult, timeResult, eqResult, roiResult] = await Promise.all([
         getValueSummary(),
         getClients(),
         getPayments(),
         getTimeEntries(),
         getEquityBets(),
+        getClientROI(),
       ])
       if (sumResult.success) setSummary(sumResult.summary)
       setClientsData(clResult.clients || [])
       setPaymentsData(payResult.payments || [])
       setTimeData(timeResult.entries || [])
       setEquityData(eqResult.bets || [])
+      setClientROI(roiResult.clients || [])
     } catch (err) {
       console.error("ValueOSDashboard load error:", err)
     } finally {

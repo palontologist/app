@@ -50,6 +50,19 @@ export async function createClient(formData: FormData) {
   }
 }
 
+export async function deleteClient(id: number) {
+  const { userId } = await auth()
+  if (!userId) return { success: false, error: "Unauthenticated" }
+
+  try {
+    await db.delete(clients).where(eq(clients.id, id))
+    return { success: true }
+  } catch (error) {
+    console.error("deleteClient error:", error)
+    return { success: false, error: "Failed to delete client" }
+  }
+}
+
 // ---- Time Entries ----
 export async function getTimeEntries() {
   const { userId } = await auth()
@@ -267,5 +280,76 @@ export async function getValueSummary() {
   } catch (error) {
     console.error("getValueSummary error:", error)
     return { success: false, error: "Failed to load value summary", summary: null }
+  }
+}
+
+// ---- Client ROI Analysis ----
+export async function getClientROI() {
+  const { userId } = await auth()
+  if (!userId) return { success: false, error: "Unauthenticated", clients: [] }
+
+  try {
+    const [clientsData, paymentsData, timeData] = await Promise.all([
+      db.select().from(clients).where(eq(clients.userId, userId)),
+      db.select().from(payments).where(eq(payments.userId, userId)),
+      db.select().from(timeEntries).where(eq(timeEntries.userId, userId)),
+    ])
+
+    // Calculate metrics per client
+    const now = new Date()
+    const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
+
+    const clientROI = clientsData.map((client) => {
+      const clientPayments = paymentsData.filter(
+        (p: any) => p.clientId === client.id && new Date(p.paymentDate) >= thirtyDaysAgo
+      )
+      const clientTime = timeData.filter((t: any) => t.clientId === client.id && new Date(t.entryDate) >= thirtyDaysAgo)
+
+      const revenueCents = clientPayments.reduce((sum: number, p: any) => sum + (p.amount || 0), 0)
+      const revenue = revenueCents / 100
+
+      const minutes = clientTime.reduce((sum: number, t: any) => sum + (t.durationMinutes || 0), 0)
+      const hours = minutes / 60
+
+      const effectiveRate = hours > 0 ? revenue / hours : 0
+
+      // Get client's billed rate (if set)
+      const billedRate = (client.hourlyRate || 0) / 100
+
+      // Check if underpriced
+      let underpriced = false
+      let underpricedBy = 0
+      if (billedRate > 0 && effectiveRate < billedRate * 0.8) {
+        underpriced = true
+        underpricedBy = billedRate - effectiveRate
+      } else if (billedRate === 0 && effectiveRate > 0 && revenue > 500) {
+        // No rate set but has revenue - suggest a rate
+        underpriced = true
+        underpricedBy = effectiveRate * 0.5
+      }
+
+      return {
+        ...client,
+        revenue,
+        hours,
+        effectiveRate: Math.round(effectiveRate),
+        billedRate: billedRate || null,
+        underpriced,
+        underpricedBy: Math.round(underpricedBy),
+        assessment: !billedRate
+          ? "No rate set"
+          : effectiveRate >= billedRate
+          ? "On target"
+          : "Underpriced",
+      }
+    })
+
+    // Sort by revenue descending
+    clientROI.sort((a, b) => b.revenue - a.revenue)
+
+    return { success: true, clients: clientROI }
+  } catch (error) {
+    console.error("getClientROI error:", error)
+    return { success: false, error: "Failed to load client ROI", clients: [] }
   }
 }

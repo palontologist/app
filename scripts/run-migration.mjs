@@ -12,7 +12,7 @@ const client = createClient({
   authToken: process.env.TURSO_AUTH_TOKEN,
 });
 
-const sql = readFileSync(join(__dirname, "../migrations/0007_value_settings.sql"), "utf-8");
+const sql = readFileSync(join(__dirname, "../migrations/0008_impact_os_funds.sql"), "utf-8");
 
 const statements = sql
   .split(";")

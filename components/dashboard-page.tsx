@@ -2,214 +2,226 @@
 
 import * as React from "react"
 import Link from "next/link"
-import { Target, BarChart3, Plus, Lightbulb, Globe } from "lucide-react"
+import { Plus, Calendar, ArrowRight, Play, Square } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Checkbox } from "@/components/ui/checkbox"
-import CircularProgress from "@/components/circular-progress"
-import AddTaskDialog from "@/components/add-task-dialog"
-import { getUser } from "@/app/actions/user"
-
-type Task = {
-  id: string
-  name: string
-  alignment: "high" | "low" | "distraction"
-  done?: boolean
-}
-
-const initialTasks: Task[] = [
-  { id: "t1", name: "Outline next sprint goals", alignment: "high" },
-  { id: "t2", name: "Investor outreach follow-up", alignment: "low" },
-  { id: "t3", name: "Refactor onboarding flow", alignment: "high" },
-  { id: "t4", name: "Random Slack catch-up", alignment: "distraction" },
-  { id: "t5", name: "Bookkeeping review", alignment: "low" },
-]
+import { Card, CardContent } from "@/components/ui/card"
+import { getValueSummary, getClients } from "@/app/actions/value"
+import { startTaskTimer, stopTaskTimer } from "@/app/actions/tasks"
 
 export default function DashboardPage() {
-  const [tasks, setTasks] = React.useState<Task[]>(initialTasks)
-  const [openAdd, setOpenAdd] = React.useState(false)
-  const [northStar, setNorthStar] = React.useState("")
+  const [summary, setSummary] = React.useState<any>(null)
+  const [clients, setClients] = React.useState<any[]>([])
+  const [loading, setLoading] = React.useState(true)
+  
+  // Timer state
+  const [isTimerRunning, setIsTimerRunning] = React.useState(false)
+  const [elapsedSeconds, setElapsedSeconds] = React.useState(0)
+  const [timerStart, setTimerStart] = React.useState<Date | null>(null)
 
   React.useEffect(() => {
-    let cancelled = false
-
-    async function loadProfile() {
-      try {
-        // Prefer server-side persisted profile mission/worldVision
-        const res = await getUser()
-        console.log("Dashboard loadProfile response:", res)
-        
-        if (!cancelled && res && res.success && res.user) {
-          console.log("User profile found:", res.user)
-          const mission = res.user.mission || res.user.worldVision || null
-          console.log("Mission from profile:", mission)
-          
-          if (mission) {
-            console.log("Setting North Star to:", mission)
-            setNorthStar(mission)
-            return
-          }
-        }
-
-        // Fallback to localStorage or default
-        const savedMission = localStorage.getItem("greta-mission")
-        console.log("Local storage mission:", savedMission)
-        
-        if (savedMission) {
-          console.log("Setting North Star from localStorage:", savedMission)
-          setNorthStar(savedMission)
-        } else {
-          console.log("Using default North Star text")
-          setNorthStar("Define your mission to get started")
-        }
-      } catch (err) {
-        console.error("Error loading profile:", err)
-        // On error, fall back safely
-        const savedMission = localStorage.getItem("greta-mission")
-        if (savedMission) setNorthStar(savedMission)
-        else setNorthStar("Define your mission to get started")
-      }
-    }
-
-    loadProfile()
-
-    return () => {
-      cancelled = true
-    }
+    loadData()
   }, [])
 
-  function toggleDone(id: string) {
-    setTasks((prev) => prev.map((t) => (t.id === id ? { ...t, done: !t.done } : t)))
+  // Timer interval
+  React.useEffect(() => {
+    let interval: NodeJS.Timeout | null = null
+    if (isTimerRunning && timerStart) {
+      interval = setInterval(() => {
+        const now = new Date()
+        const elapsed = Math.floor((now.getTime() - timerStart.getTime()) / 1000)
+        setElapsedSeconds(elapsed)
+      }, 1000)
+    }
+    return () => {
+      if (interval) clearInterval(interval)
+    }
+  }, [isTimerRunning, timerStart])
+
+  const loadData = async () => {
+    setLoading(true)
+    try {
+      const [sumResult, clientsResult] = await Promise.all([
+        getValueSummary(),
+        getClients(),
+      ])
+      if (sumResult.success) setSummary(sumResult.summary)
+      if (clientsResult.success) setClients(clientsResult.clients || [])
+    } catch (err) {
+      console.error("Dashboard load error:", err)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleStartTimer = async () => {
+    try {
+      await startTaskTimer(0)
+      setIsTimerRunning(true)
+      setTimerStart(new Date())
+      setElapsedSeconds(0)
+    } catch (err) {
+      console.error("Failed to start timer:", err)
+    }
+  }
+
+  const handleStopTimer = async () => {
+    if (elapsedSeconds > 0) {
+      try {
+        const minutes = Math.floor(elapsedSeconds / 60)
+        await stopTaskTimer(0, minutes)
+        setIsTimerRunning(false)
+        setTimerStart(null)
+        setElapsedSeconds(0)
+        loadData()
+      } catch (err) {
+        console.error("Failed to stop timer:", err)
+      }
+    }
+  }
+
+  const formatTime = (seconds: number) => {
+    const hours = Math.floor(seconds / 3600)
+    const minutes = Math.floor((seconds % 3600) / 60)
+    const secs = seconds % 60
+    if (hours > 0) {
+      return `${hours}:${minutes.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`
+    }
+    return `${minutes}:${secs.toString().padStart(2, "0")}`
+  }
+
+  if (loading) {
+    return (
+      <div className="p-8 text-center text-slate-400">Loading...</div>
+    )
   }
 
   return (
-    <div className="mx-auto max-w-2xl px-4 pb-28 pt-6 sm:pt-8">
-      {/* Header */}
-      <header className="mb-6 flex items-center justify-between">
-        <div className="font-semibold tracking-tight text-xl">greta</div>
-        <nav className="flex items-center gap-3">
-          <Link
-            href="/impact"
-            className="inline-flex h-9 items-center justify-center rounded-md border bg-background px-3 text-sm hover:bg-accent hover:text-accent-foreground"
-            aria-label="Open Impact"
-          >
-            <Globe className="h-4 w-4" />
-          </Link>
-          <Link
-            href="/brainstorm"
-            className="inline-flex h-9 items-center justify-center rounded-md border bg-background px-3 text-sm hover:bg-accent hover:text-accent-foreground"
-            aria-label="Open Brainstorm"
-          >
-            <Lightbulb className="h-4 w-4" />
-          </Link>
-          <Link
-            href="/analytics"
-            className="inline-flex h-9 items-center justify-center rounded-md border bg-background px-3 text-sm hover:bg-accent hover:text-accent-foreground"
-            aria-label="Open Analytics"
-          >
-            <BarChart3 className="h-4 w-4" />
-          </Link>
-          <Link
-            href="/history"
-            className="inline-flex h-9 items-center justify-center rounded-md border bg-background px-3 text-sm hover:bg-accent hover:text-accent-foreground"
-            aria-label="Open History"
-          >
-            History
-          </Link>
-        </nav>
-      </header>
+    <div className="space-y-6">
+      <div className="grid grid-cols-2 gap-4">
+        <Card>
+          <CardContent className="p-4">
+            <p className="text-xs font-medium text-slate-400 uppercase tracking-wider">This Month</p>
+            <div className="flex items-baseline gap-2 mt-1">
+              <span className="text-2xl font-bold" style={{ color: '#1c1a17' }}>
+                ${(summary?.weekRevenue || 0).toLocaleString()}
+              </span>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <p className="text-xs font-medium text-slate-400 uppercase tracking-wider">Effective Rate</p>
+            <div className="mt-1">
+              <span className="text-2xl font-bold" style={{ color: '#1c1a17' }}>
+                ${summary?.effectiveRate || 0}/hr
+              </span>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
 
-      {/* North Star */}
-      <Card className="mb-4">
-        <CardHeader className="pb-3">
-          <CardTitle className="flex items-center gap-2 text-base font-medium">
-            <Target className="h-4 w-4 text-[#28A745]" />
-            North Star
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-sm text-[#111827]">{northStar}</p>
-          <div className="mt-2 p-2 border-t border-dashed border-gray-200">
-            <p className="text-xs text-gray-500">Debug info:</p>
-            <p className="text-xs text-gray-500">
-              northStar state: {JSON.stringify({value: northStar, length: northStar.length})}
-            </p>
-            <a href="/debug-user" target="_blank" className="text-xs text-blue-500 underline">
-              View Profile Data
-            </a>
+      {/* Timer Section - YouTube style */}
+      <Card className={isTimerRunning ? "border-green-500 bg-green-50" : ""}>
+        <CardContent className="p-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <Button
+                size="icon"
+                variant={isTimerRunning ? "destructive" : "default"}
+                onClick={isTimerRunning ? handleStopTimer : handleStartTimer}
+                className={`w-14 h-14 rounded-full ${isTimerRunning ? "bg-red-500 hover:bg-red-600" : "bg-green-600 hover:bg-green-700"}`}
+              >
+                {isTimerRunning ? (
+                  <Square className="w-6 h-6" />
+                ) : (
+                  <Play className="w-6 h-6 ml-1" />
+                )}
+              </Button>
+              <div>
+                <p className="text-sm text-slate-500">
+                  {isTimerRunning ? "Recording time..." : "Ready to work?"}
+                </p>
+                <p className={`text-2xl font-mono font-bold ${isTimerRunning ? "text-green-600" : "text-slate-400"}`}>
+                  {isTimerRunning ? formatTime(elapsedSeconds) : "0:00"}
+                </p>
+              </div>
+            </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* Alignment Score */}
-      <Card className="mb-6">
-        <CardContent className="flex items-center justify-between p-4">
-          <div>
-            <div className="text-sm text-[#6B7280]">Daily Alignment Score</div>
-            <div className="mt-1 text-2xl font-semibold text-[#1A1A1A]">Today</div>
-            <p className="mt-1 text-xs text-[#6B7280]">{"Based on completed tasks and their alignment impact."}</p>
+      <div>
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-sm font-medium text-slate-700">Your Clients ({clients.length})</h2>
+          <Link href="/clients" className="text-xs text-green-600 hover:underline">
+            Manage
+          </Link>
+        </div>
+        
+        {clients.length === 0 ? (
+          <Card>
+            <CardContent className="p-6 text-center">
+              <p className="text-sm text-slate-500 mb-4">Add clients to start tracking value.</p>
+              <Link href="/clients">
+                <Button size="sm" className="bg-green-600 hover:bg-green-700">
+                  <Plus className="w-4 h-4 mr-1" /> Add Client
+                </Button>
+              </Link>
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="space-y-2">
+            {clients.slice(0, 3).map((client) => (
+              <Card key={client.id}>
+                <CardContent className="p-4 flex items-center justify-between">
+                  <div>
+                    <p className="font-medium text-slate-900">{client.name}</p>
+                    {client.email && (
+                      <p className="text-xs text-slate-400">{client.email}</p>
+                    )}
+                  </div>
+                  <div className="text-right">
+                    <p className="font-semibold text-slate-900">
+                      ${(client.hourlyRate || 0) / 100}/hr
+                    </p>
+                    <p className="text-xs text-slate-400">billed</p>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+            {clients.length > 3 && (
+              <Link href="/clients" className="block text-center text-sm text-slate-500 py-2">
+                + {clients.length - 3} more
+              </Link>
+            )}
           </div>
-          <CircularProgress value={76} label="Aligned Today" indicatorColor="#28A745" />
-        </CardContent>
-      </Card>
+        )}
+      </div>
 
-      {/* Task List */}
-      <section aria-labelledby="today-tasks-heading">
-        <h2 id="today-tasks-heading" className="mb-3 text-sm font-medium text-[#374151]">
-          Today&apos;s Tasks
-        </h2>
-        <ul className="grid gap-2">
-          {tasks.map((task) => (
-            <li key={task.id} className="flex items-center justify-between rounded-lg border bg-white p-3">
-              <div className="flex items-center gap-3">
-                <Checkbox
-                  id={`task-${task.id}`}
-                  checked={Boolean(task.done)}
-                  onCheckedChange={() => toggleDone(task.id)}
-                />
-                <label
-                  htmlFor={`task-${task.id}`}
-                  className={`text-sm ${task.done ? "line-through text-[#9CA3AF]" : "text-[#111827]"}`}
-                >
-                  {task.name}
-                </label>
-              </div>
-              <div className="flex items-center gap-2">
-                <AlignmentDot alignment={task.alignment} />
-                <span className="text-xs text-[#6B7280] capitalize">{labelFor(task.alignment)}</span>
-              </div>
-            </li>
-          ))}
-        </ul>
-      </section>
+      <div>
+        <h2 className="text-sm font-medium text-slate-700 mb-3">Connect</h2>
+        <div className="grid grid-cols-2 gap-3">
+          <Link href="/api/google/auth/start">
+            <Card className="hover:border-slate-300 transition-colors cursor-pointer">
+              <CardContent className="p-4 flex items-center gap-3">
+                <div className="w-10 h-10 bg-slate-50 rounded-lg flex items-center justify-center">
+                  <Calendar className="w-5 h-5 text-slate-400" />
+                </div>
+                <div>
+                  <p className="font-medium text-slate-900 text-sm">Calendar</p>
+                  <p className="text-xs text-slate-400">Connect Google</p>
+                </div>
+              </CardContent>
+            </Card>
+          </Link>
+        </div>
+      </div>
 
-      {/* FAB */}
-      <Button
-        onClick={() => setOpenAdd(true)}
-        aria-label="Add Task"
-        className="fixed bottom-24 right-6 z-20 h-14 w-14 rounded-full bg-[#28A745] p-0 text-white shadow-lg hover:bg-[#23923d] sm:bottom-8"
-      >
-        <Plus className="h-6 w-6" />
-      </Button>
-
-      <AddTaskDialog open={openAdd} onOpenChange={setOpenAdd} />
+      <div className="text-center pt-4">
+        <Link href="/value" className="inline-flex items-center text-sm text-green-600 hover:underline">
+          View value details <ArrowRight className="w-4 h-4 ml-1" />
+        </Link>
+      </div>
     </div>
-  )
-}
-
-function labelFor(a: Task["alignment"]) {
-  if (a === "high") return "High Alignment"
-  if (a === "low") return "Low Alignment"
-  return "Distraction"
-}
-
-function AlignmentDot({ alignment }: { alignment: Task["alignment"] }) {
-  // Single accent color strategy:
-  // - High: accent green
-  // - Low: neutral gray
-  // - Distraction: darker gray
-  const color = alignment === "high" ? "#28A745" : alignment === "low" ? "#D1D5DB" : "#6B7280"
-  return (
-    <span aria-hidden="true" className="inline-block h-2.5 w-2.5 rounded-full" style={{ backgroundColor: color }} />
   )
 }

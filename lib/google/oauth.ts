@@ -14,7 +14,7 @@ export function createOAuthClient(): OAuth2Client {
     throw new Error(`Missing Google OAuth environment variables: ${missing.join(', ')}`)
   }
 
-  console.log('Google OAuth client created successfully')
+  console.log('Google OAuth client created with redirect URI:', GOOGLE_REDIRECT_URI)
   return new google.auth.OAuth2(GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REDIRECT_URI)
 }
 

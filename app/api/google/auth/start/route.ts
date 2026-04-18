@@ -13,11 +13,11 @@ export async function GET() {
 
     console.log('Google auth start: Generating auth URL for user', session.userId)
 
-    // Encode userId as state so the callback can recover it across browsers
+    // Encode userId as state
     const state = Buffer.from(session.userId).toString('base64url')
     const url = getAuthUrl(defaultCalendarScopes, state)
 
-    console.log('Google auth start: Redirecting to Google OAuth')
+    console.log('Google auth start: Auth URL generated, redirecting')
     return NextResponse.redirect(url)
   } catch (error) {
     console.error('Google auth start error:', error)
