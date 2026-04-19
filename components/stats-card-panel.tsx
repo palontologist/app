@@ -36,7 +36,7 @@ export function StatsCardPanel({ thisWeek, lastWeek, effectiveHourlyRate }: Stat
     const percentChange = ((current - previous) / previous) * 100;
     return {
       value: Math.abs(current - previous),
-      direction: current > previous ? 'up' : 'down' as const,
+      direction: (current > previous ? 'up' : 'down') as 'up' | 'down',
       percentage: Math.round(percentChange),
     };
   };

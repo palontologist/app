@@ -10,11 +10,12 @@ import {
   Briefcase,
   ChevronRight,
   Loader2,
+  AlertTriangle,
 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -404,15 +405,35 @@ export function ValueOSDashboard() {
     loadData()
   }, [])
 
-  if (loading) {
-    return (
-      <div className="p-6 flex items-center justify-center min-h-[300px]">
-        <Loader2 className="h-8 w-8 animate-spin text-[#28A745]" />
-      </div>
-    )
-  }
-
   const hasData = clientsData.length > 0 || paymentsData.length > 0
+  const [calcInput, setCalcInput] = React.useState({ clientName: '', hourlyRate: 100, hoursTracked: 20 })
+  const [quickResults, setQuickResults] = React.useState<{ effectiveRate: number; lostRevenue: number; verdict: string } | null>(null)
+
+  React.useEffect(() => {
+    if (calcInput.hourlyRate > 0 && calcInput.hoursTracked > 0) {
+      const effectiveRate = calcInput.hourlyRate
+      const totalRevenue = effectiveRate * calcInput.hoursTracked
+      const totalBilled = calcInput.hourlyRate * calcInput.hoursTracked
+      const lost = totalBilled - totalRevenue
+      
+      let verdict = ''
+      if (effectiveRate < 15) {
+        verdict = "You're making less than minimum wage. This client is costing you money."
+      } else if (effectiveRate < 40) {
+        verdict = "Warning: You're effectively earning far less than you think."
+      } else if (effectiveRate < 80) {
+        verdict = "You're undercharging. There's room to raise rates."
+      } else {
+        verdict = "This client is paying well. Keep them!"
+      }
+
+      setQuickResults({
+        effectiveRate,
+        lostRevenue: lost,
+        verdict
+      })
+    }
+  }, [calcInput])
 
   return (
     <div className="p-6 max-w-6xl mx-auto space-y-6">
@@ -452,140 +473,116 @@ export function ValueOSDashboard() {
         />
       </div>
 
-      {/* Tabs */}
-      <Tabs defaultValue="overview">
-        <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="clients">Clients ({clientsData.length})</TabsTrigger>
-          <TabsTrigger value="revenue">Revenue ({paymentsData.length})</TabsTrigger>
-          <TabsTrigger value="equity">Equity ({equityData.length})</TabsTrigger>
-        </TabsList>
+      {/* QUICK CALCULATOR */}
+      <Card className="border-2 border-orange-200 bg-gradient-to-br from-orange-50 to-amber-50">
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2 text-lg">
+            <AlertTriangle className="h-5 w-5 text-orange-500" />
+            Quick Value Check
+          </CardTitle>
+          <p className="text-sm text-muted-foreground">Enter ONE client to see if you're actually making what you think.</p>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-4 sm:grid-cols-4">
+            <div>
+              <Label className="text-xs">Client Name</Label>
+              <Input
+                placeholder="e.g. Acme Corp"
+                value={calcInput.clientName}
+                onChange={(e) => setCalcInput({ ...calcInput, clientName: e.target.value })}
+                className="mt-1"
+              />
+            </div>
+            <div>
+              <Label className="text-xs">Your Rate ($/hr)</Label>
+              <Input
+                type="number"
+                value={calcInput.hourlyRate}
+                onChange={(e) => setCalcInput({ ...calcInput, hourlyRate: Number(e.target.value) })}
+                className="mt-1"
+              />
+            </div>
+            <div>
+              <Label className="text-xs">Hours This Month</Label>
+              <Input
+                type="number"
+                value={calcInput.hoursTracked}
+                onChange={(e) => setCalcInput({ ...calcInput, hoursTracked: Number(e.target.value) })}
+                className="mt-1"
+              />
+            </div>
+            <div className="flex items-end">
+              <Button 
+                onClick={() => setQuickResults(null)}
+                variant="outline" 
+                className="w-full mt-1"
+              >
+                Reset
+              </Button>
+            </div>
+          </div>
 
-        {/* Overview */}
-        <TabsContent value="overview" className="space-y-4">
-          {!hasData ? (
-            <Card>
-              <CardContent className="py-12 text-center">
-                <DollarSign className="h-12 w-12 text-muted-foreground/30 mx-auto mb-4" />
-                <h3 className="font-semibold text-lg mb-2">Start tracking your value</h3>
-                <p className="text-muted-foreground text-sm mb-6 max-w-sm mx-auto">
-                  Add clients, log time entries, and record payments to see how your work compounds into revenue and equity.
-                </p>
-                <div className="flex gap-3 justify-center flex-wrap">
-                  <AddClientDialog onCreated={loadData} />
-                  <AddPaymentDialog clients={clientsData} onCreated={loadData} />
+          {quickResults && (
+            <div className="mt-6 rounded-lg bg-white p-4 border border-orange-200">
+              <div className="flex items-center gap-3 mb-3">
+                <div className={`text-3xl font-bold ${quickResults.effectiveRate < 40 ? 'text-red-600' : quickResults.effectiveRate < 80 ? 'text-orange-600' : 'text-green-600'}`}>
+                  ${quickResults.effectiveRate.toFixed(0)}/hr
                 </div>
-              </CardContent>
-            </Card>
-          ) : (
-            <div className="grid md:grid-cols-2 gap-4">
-              {/* Recent Payments */}
-              <Card>
-                <CardHeader className="pb-3 flex flex-row items-center justify-between">
-                  <CardTitle className="text-base">Recent Revenue</CardTitle>
-                  <AddPaymentDialog clients={clientsData} onCreated={loadData} />
-                </CardHeader>
-                <CardContent>
-                  {paymentsData.length === 0 ? (
-                    <p className="text-sm text-muted-foreground text-center py-4">No payments logged yet</p>
-                  ) : (
-                    <div className="space-y-2">
-                      {paymentsData.slice(0, 5).map((p) => {
-                        const client = clientsData.find((c) => c.id === p.clientId)
-                        return (
-                          <div key={p.id} className="flex items-center justify-between py-2 border-b last:border-0">
-                            <div>
-                              <p className="text-sm font-medium">${(p.amount / 100).toLocaleString()}</p>
-                              <p className="text-xs text-muted-foreground">
-                                {client?.name || "No client"} · {new Date(p.paymentDate).toLocaleDateString()}
-                              </p>
-                            </div>
-                            {p.paymentMethod && (
-                              <Badge variant="secondary" className="text-xs capitalize">
-                                {p.paymentMethod.replace("_", " ")}
-                              </Badge>
-                            )}
-                          </div>
-                        )
-                      })}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
+                <div className="text-sm text-muted-foreground">effective rate</div>
+              </div>
+              
+              <div className={`p-3 rounded-lg ${quickResults.effectiveRate < 40 ? 'bg-red-50 border border-red-200' : quickResults.effectiveRate < 80 ? 'bg-orange-50 border border-orange-200' : 'bg-green-50 border border-green-200'}`}>
+                <p className={`font-medium ${quickResults.effectiveRate < 40 ? 'text-red-700' : quickResults.effectiveRate < 80 ? 'text-orange-700' : 'text-green-700'}`}>
+                  {quickResults.verdict}
+                </p>
+              </div>
 
-              {/* Time by Activity */}
-              <Card>
-                <CardHeader className="pb-3 flex flex-row items-center justify-between">
-                  <CardTitle className="text-base">Time by Activity</CardTitle>
-                  <AddTimeEntryDialog clients={clientsData} onCreated={loadData} />
-                </CardHeader>
-                <CardContent>
-                  {timeData.length === 0 ? (
-                    <p className="text-sm text-muted-foreground text-center py-4">No time logged yet</p>
-                  ) : (
-                    <div className="space-y-2">
-                      {Object.entries(
-                        timeData.reduce((acc: Record<string, number>, e) => {
-                          const type = e.activityType || "other"
-                          acc[type] = (acc[type] || 0) + (e.durationMinutes || 0)
-                          return acc
-                        }, {})
-                      )
-                        .sort(([, a], [, b]) => b - a)
-                        .map(([type, minutes]) => (
-                          <div key={type} className="flex items-center justify-between py-1">
-                            <span className="text-sm capitalize">{type}</span>
-                            <span className="text-sm font-medium">
-                              {(minutes / 60).toFixed(1)}h
-                            </span>
-                          </div>
-                        ))}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
+              {quickResults.effectiveRate < calcInput.hourlyRate && (
+                <p className="mt-2 text-sm text-muted-foreground">
+                  You're billing ${calcInput.hourlyRate} but actually making ${quickResults.effectiveRate.toFixed(0)} per hour of your time.
+                </p>
+              )}
             </div>
           )}
-        </TabsContent>
+        </CardContent>
+      </Card>
 
-        {/* Clients */}
-        <TabsContent value="clients" className="space-y-4">
-          <div className="flex justify-between items-center">
-            <h2 className="text-sm font-medium text-muted-foreground">
-              {clientsData.length} client{clientsData.length !== 1 ? "s" : ""}
-            </h2>
+      {/* ALL ON ONE PAGE - No tabs */}
+      <div className="grid gap-6 lg:grid-cols-2">
+        {/* CLIENTS */}
+        <Card>
+          <CardHeader className="pb-3 flex flex-row items-center justify-between">
+            <CardTitle className="text-base">Clients ({clientsData.length})</CardTitle>
             <AddClientDialog onCreated={loadData} />
-          </div>
-          {clientsData.length === 0 ? (
-            <Card>
-              <CardContent className="py-8 text-center">
+          </CardHeader>
+          <CardContent>
+            {clientsData.length === 0 ? (
+              <div className="text-center py-6">
                 <Users className="h-8 w-8 text-muted-foreground/30 mx-auto mb-3" />
-                <p className="text-muted-foreground text-sm">No clients yet. Add your first client.</p>
-              </CardContent>
-            </Card>
-          ) : (
-            <div className="space-y-3">
-              {clientsData.map((client) => {
-                const clientPayments = paymentsData.filter((p) => p.clientId === client.id)
-                const totalPaid = clientPayments.reduce((sum, p) => sum + (p.amount || 0), 0) / 100
-                const clientTime = timeData.filter((t) => t.clientId === client.id)
-                const totalHours = clientTime.reduce((sum, t) => sum + (t.durationMinutes || 0), 0) / 60
-                const effectiveRate = totalHours > 0 ? totalPaid / totalHours : 0
-                const targetRate = client.hourlyRate ? client.hourlyRate / 100 : null
+                <p className="text-sm text-muted-foreground">No clients yet.</p>
+              </div>
+            ) : (
+              <div className="space-y-3 max-h-[400px] overflow-y-auto">
+                {clientsData.map((client) => {
+                  const clientPayments = paymentsData.filter((p) => p.clientId === client.id)
+                  const totalPaid = clientPayments.reduce((sum, p) => sum + (p.amount || 0), 0) / 100
+                  const clientTime = timeData.filter((t) => t.clientId === client.id)
+                  const totalHours = clientTime.reduce((sum, t) => sum + (t.durationMinutes || 0), 0) / 60
+                  const effectiveRate = totalHours > 0 ? totalPaid / totalHours : 0
+                  const targetRate = client.hourlyRate ? client.hourlyRate / 100 : null
 
-                let pricingStatus: "on-target" | "underpriced" | "overpriced" | "no-rate" = "no-rate"
-                if (targetRate && effectiveRate > 0) {
-                  if (effectiveRate >= targetRate * 0.95) pricingStatus = "on-target"
-                  else if (effectiveRate < targetRate * 0.85) pricingStatus = "underpriced"
-                  else pricingStatus = "overpriced"
-                }
+                  let pricingStatus: "on-target" | "underpriced" | "overpriced" | "no-rate" = "no-rate"
+                  if (targetRate && effectiveRate > 0) {
+                    if (effectiveRate >= targetRate * 0.95) pricingStatus = "on-target"
+                    else if (effectiveRate < targetRate * 0.85) pricingStatus = "underpriced"
+                    else pricingStatus = "overpriced"
+                  }
 
-                return (
-                  <Card key={client.id}>
-                    <CardContent className="p-4">
+                  return (
+                    <div key={client.id} className="p-3 rounded-lg border">
                       <div className="flex items-start justify-between">
                         <div>
-                          <h3 className="font-medium">{client.name}</h3>
+                          <h3 className="font-medium text-sm">{client.name}</h3>
                           {client.email && <p className="text-xs text-muted-foreground">{client.email}</p>}
                         </div>
                         {pricingStatus !== "no-rate" && (
@@ -606,7 +603,7 @@ export function ValueOSDashboard() {
                           </Badge>
                         )}
                       </div>
-                      <div className="mt-3 grid grid-cols-3 gap-2 text-center">
+                      <div className="mt-2 grid grid-cols-3 gap-2 text-center">
                         <div>
                           <p className="text-xs text-muted-foreground">Revenue</p>
                           <p className="text-sm font-semibold">${totalPaid.toLocaleString()}</p>
@@ -622,128 +619,120 @@ export function ValueOSDashboard() {
                           </p>
                         </div>
                       </div>
-                    </CardContent>
-                  </Card>
-                )
-              })}
-            </div>
-          )}
-        </TabsContent>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
-        {/* Revenue */}
-        <TabsContent value="revenue" className="space-y-4">
-          <div className="flex justify-between items-center">
-            <h2 className="text-sm font-medium text-muted-foreground">
-              {paymentsData.length} payment{paymentsData.length !== 1 ? "s" : ""}
-            </h2>
+        {/* REVENUE */}
+        <Card>
+          <CardHeader className="pb-3 flex flex-row items-center justify-between">
+            <CardTitle className="text-base">Revenue ({paymentsData.length})</CardTitle>
             <AddPaymentDialog clients={clientsData} onCreated={loadData} />
-          </div>
-          {paymentsData.length === 0 ? (
-            <Card>
-              <CardContent className="py-8 text-center">
+          </CardHeader>
+          <CardContent>
+            {paymentsData.length === 0 ? (
+              <div className="text-center py-6">
                 <DollarSign className="h-8 w-8 text-muted-foreground/30 mx-auto mb-3" />
-                <p className="text-muted-foreground text-sm">No payments logged yet.</p>
-              </CardContent>
-            </Card>
-          ) : (
-            <div className="space-y-2">
-              {paymentsData.map((p) => {
-                const client = clientsData.find((c) => c.id === p.clientId)
-                return (
-                  <Card key={p.id}>
-                    <CardContent className="p-4 flex items-center justify-between">
+                <p className="text-sm text-muted-foreground">No payments logged yet.</p>
+              </div>
+            ) : (
+              <div className="space-y-2 max-h-[400px] overflow-y-auto">
+                {paymentsData.slice(0, 10).map((p) => {
+                  const client = clientsData.find((c) => c.id === p.clientId)
+                  return (
+                    <div key={p.id} className="flex items-center justify-between py-2 border-b last:border-0">
                       <div>
-                        <p className="font-semibold">${(p.amount / 100).toLocaleString()}</p>
+                        <p className="text-sm font-medium">${(p.amount / 100).toLocaleString()}</p>
                         <p className="text-xs text-muted-foreground">
                           {client?.name || "No client"} · {new Date(p.paymentDate).toLocaleDateString()}
                         </p>
-                        {p.description && (
-                          <p className="text-xs text-muted-foreground mt-0.5">{p.description}</p>
-                        )}
                       </div>
                       {p.paymentMethod && (
-                        <Badge variant="secondary" className="capitalize">
+                        <Badge variant="secondary" className="text-xs capitalize">
                           {p.paymentMethod.replace("_", " ")}
                         </Badge>
                       )}
-                    </CardContent>
-                  </Card>
-                )
-              })}
-            </div>
-          )}
-        </TabsContent>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
-        {/* Equity */}
-        <TabsContent value="equity" className="space-y-4">
-          <div className="flex justify-between items-center">
-            <h2 className="text-sm font-medium text-muted-foreground">
-              {equityData.length} equity bet{equityData.length !== 1 ? "s" : ""}
-            </h2>
+        {/* EQUITY */}
+        <Card className="lg:col-span-2">
+          <CardHeader className="pb-3 flex flex-row items-center justify-between">
+            <CardTitle className="text-base">Equity Bets ({equityData.length})</CardTitle>
             <AddEquityBetDialog onCreated={loadData} />
-          </div>
-          {equityData.length === 0 ? (
-            <Card>
-              <CardContent className="py-8 text-center">
+          </CardHeader>
+          <CardContent>
+            {equityData.length === 0 ? (
+              <div className="text-center py-6">
                 <Briefcase className="h-8 w-8 text-muted-foreground/30 mx-auto mb-3" />
-                <p className="text-muted-foreground text-sm">
-                  No equity bets yet. Add advisory shares, startup investments, or equity compensation.
-                </p>
-              </CardContent>
-            </Card>
-          ) : (
-            <div className="space-y-3">
-              {equityData.map((bet) => {
-                const pct = (bet.equityPercentage || 0) / 10000
-                const val = (bet.estimatedValuation || 0) / 100
-                const yourValue = pct * val
+                <p className="text-sm text-muted-foreground">No equity bets yet.</p>
+              </div>
+            ) : (
+              <div className="grid gap-3 sm:grid-cols-2">
+                {equityData.map((bet) => {
+                  const pct = (bet.equityPercentage || 0) / 10000
+                  const val = (bet.estimatedValuation || 0) / 100
+                  const yourValue = pct * val
 
-                return (
-                  <Card key={bet.id}>
-                    <CardContent className="p-4">
+                  return (
+                    <div key={bet.id} className="p-3 rounded-lg border">
                       <div className="flex items-start justify-between">
                         <div>
-                          <h3 className="font-medium">{bet.companyName}</h3>
-                          {bet.notes && (
-                            <p className="text-xs text-muted-foreground mt-0.5">{bet.notes}</p>
-                          )}
+                          <h3 className="font-medium text-sm">{bet.companyName}</h3>
+                          {bet.notes && <p className="text-xs text-muted-foreground mt-0.5">{bet.notes}</p>}
                         </div>
-                        <Badge
-                          className={
-                            bet.status === "active"
-                              ? "bg-green-100 text-green-700"
-                              : "bg-gray-100 text-gray-700"
-                          }
-                        >
+                        <Badge className={bet.status === "active" ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-700"}>
                           {bet.status}
                         </Badge>
                       </div>
-                      <div className="mt-3 grid grid-cols-3 gap-2 text-center">
+                      <div className="mt-2 grid grid-cols-3 gap-2 text-center">
                         <div>
                           <p className="text-xs text-muted-foreground">Equity</p>
                           <p className="text-sm font-semibold">{(pct * 100).toFixed(2)}%</p>
                         </div>
                         <div>
                           <p className="text-xs text-muted-foreground">Valuation</p>
-                          <p className="text-sm font-semibold">
-                            {val > 0 ? `$${(val / 1000).toFixed(0)}k` : "—"}
-                          </p>
+                          <p className="text-sm font-semibold">{val > 0 ? `$${(val / 1000).toFixed(0)}k` : "—"}</p>
                         </div>
                         <div>
                           <p className="text-xs text-muted-foreground">Your Value</p>
-                          <p className="text-sm font-semibold text-[#28A745]">
-                            {yourValue > 0 ? `$${Math.round(yourValue / 1000)}k` : "—"}
-                          </p>
+                          <p className="text-sm font-semibold text-[#28A745]">{yourValue > 0 ? `$${Math.round(yourValue / 1000)}k` : "—"}</p>
                         </div>
                       </div>
-                    </CardContent>
-                  </Card>
-                )
-              })}
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Empty state */}
+      {!hasData && (
+        <Card>
+          <CardContent className="py-8 text-center">
+            <DollarSign className="h-12 w-12 text-muted-foreground/30 mx-auto mb-4" />
+            <h3 className="font-semibold text-lg mb-2">Start tracking your value</h3>
+            <p className="text-muted-foreground text-sm mb-6 max-w-sm mx-auto">
+              Add clients, log time entries, and record payments to see how your work compounds into revenue and equity.
+            </p>
+            <div className="flex gap-3 justify-center flex-wrap">
+              <AddClientDialog onCreated={loadData} />
+              <AddPaymentDialog clients={clientsData} onCreated={loadData} />
             </div>
-          )}
-        </TabsContent>
-      </Tabs>
+          </CardContent>
+        </Card>
+      )}
     </div>
   )
 }
