@@ -27,7 +27,15 @@ export default function ProfileScreen() {
 
   // Edit states
   const [editingMission, setEditingMission] = React.useState(false)
-  const [missionForm, setMissionForm] = React.useState({ name: "", mission: "", worldVision: "", focusAreas: "" })
+  const [missionForm, setMissionForm] = React.useState({ 
+    name: "", 
+    mission: "", 
+    worldVision: "", 
+    focusAreas: "",
+    targetHourlyRate: "",
+    meetingHoursPerMonth: "",
+    emailHoursPerMonth: ""
+  })
   const [savingMission, setSavingMission] = React.useState(false)
 
   React.useEffect(() => {
@@ -45,6 +53,9 @@ export default function ProfileScreen() {
           mission: userRes.user.mission || "",
           worldVision: userRes.user.worldVision || "",
           focusAreas: userRes.user.focusAreas || "",
+          targetHourlyRate: userRes.user.targetHourlyRate?.toString() || "",
+          meetingHoursPerMonth: userRes.user.meetingHoursPerMonth?.toString() || "10",
+          emailHoursPerMonth: userRes.user.emailHoursPerMonth?.toString() || "5",
         })
       }
       if (tasksRes.success) setTasks(tasksRes.tasks)
@@ -146,10 +157,14 @@ export default function ProfileScreen() {
                 { key: "mission", label: "Mission", placeholder: "What do you stand for?" },
                 { key: "worldVision", label: "World vision", placeholder: "What world do you want to see?" },
                 { key: "focusAreas", label: "Focus areas", placeholder: "e.g. Customer acquisition, Product" },
-              ].map(({ key, label, placeholder }) => (
+                { key: "targetHourlyRate", label: "Target Rate ($/hr)", placeholder: "e.g. 100", type: "number" },
+                { key: "meetingHoursPerMonth", label: "Meeting hrs/month", placeholder: "e.g. 10", type: "number" },
+                { key: "emailHoursPerMonth", label: "Email hrs/month", placeholder: "e.g. 5", type: "number" },
+              ].map(({ key, label, placeholder, type }) => (
                 <div key={key}>
                   <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide">{label}</label>
                   <input
+                    type={type || "text"}
                     value={(missionForm as any)[key]}
                     onChange={(e) => setMissionForm((p) => ({ ...p, [key]: e.target.value }))}
                     placeholder={placeholder}
@@ -228,6 +243,60 @@ export default function ProfileScreen() {
             >
               <Plus className="h-3 w-3" /> Add area
             </button>
+          </div>
+        </div>
+
+        {/* ── Rate Settings ── */}
+        <div>
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-[12px] font-bold text-slate-800">Rate Settings</span>
+            <button onClick={() => setEditingMission(true)} className="text-[11px] text-green-600 font-medium">Edit</button>
+          </div>
+          <div className="bg-white rounded-xl border border-green-200 p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-[12px] text-slate-600">Target Rate</span>
+              <span className="text-[14px] font-bold text-green-600">${profile?.targetHourlyRate || 75}/hr</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-[12px] text-slate-600">Meeting Hours/Month</span>
+              <span className="text-[13px] font-medium text-slate-700">{profile?.meetingHoursPerMonth || 10} hrs</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-[12px] text-slate-600">Email Hours/Month</span>
+              <span className="text-[13px] font-medium text-slate-700">{profile?.emailHoursPerMonth || 5} hrs</span>
+            </div>
+            {profile?.targetHourlyRate && (
+              <>
+                <div className="border-t border-slate-100 pt-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[12px] text-slate-600">Billable Hours/Month</span>
+                    <span className="text-[13px] font-medium text-slate-700">20 hrs</span>
+                  </div>
+                </div>
+                <div className="bg-green-50 rounded-lg p-3">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-[11px] font-semibold text-green-700 uppercase tracking-wide">Effective Rate</span>
+                    {(() => {
+                      const targetRate = profile?.targetHourlyRate || 75
+                      const meetingHrs = profile?.meetingHoursPerMonth || 10
+                      const emailHrs = profile?.emailHoursPerMonth || 5
+                      const billableHrs = 20
+                      const totalHrs = billableHrs + meetingHrs + emailHrs
+                      const effectiveRate = Math.round((targetRate * billableHrs) / totalHrs)
+                      const isGood = effectiveRate >= targetRate * 0.8
+                      return (
+                        <span className={`text-[16px] font-bold ${isGood ? 'text-green-600' : 'text-orange-600'}`}>
+                          ${effectiveRate}/hr
+                        </span>
+                      )
+                    })()}
+                  </div>
+                  <p className="text-[10px] text-green-600/70">
+                    After {profile?.meetingHoursPerMonth || 10} meeting + {profile?.emailHoursPerMonth || 5} email hours
+                  </p>
+                </div>
+              </>
+            )}
           </div>
         </div>
 

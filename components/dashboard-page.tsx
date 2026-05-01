@@ -9,18 +9,26 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
 import { getValueSummary, getClients, createClient, createTimeEntry, createPayment, getTimeEntries, getPayments } from "@/app/actions/value"
+import { getUser } from "@/app/actions/user"
 import { startTaskTimer, stopTaskTimer } from "@/app/actions/tasks"
 
 export default function DashboardPage() {
   const [summary, setSummary] = React.useState<any>(null)
   const [clients, setClients] = React.useState<any[]>([])
   const [loading, setLoading] = React.useState(true)
+  const [userProfile, setUserProfile] = React.useState<any>(null)
   
   // Timer state
   const [isTimerRunning, setIsTimerRunning] = React.useState(false)
   const [elapsedSeconds, setElapsedSeconds] = React.useState(0)
   const [timerStart, setTimerStart] = React.useState<Date | null>(null)
-  const [calcInput, setCalcInput] = React.useState({ clientName: '', hourlyRate: 100, hoursTracked: 20 })
+  const [calcInput, setCalcInput] = React.useState({ 
+    clientName: '', 
+    hourlyRate: 75, 
+    hoursTracked: 20,
+    meetingHours: 10,
+    emailHours: 5
+  })
   const [quickResults, setQuickResults] = React.useState<{ effectiveRate: number; verdict: string } | null>(null)
   const [addSuccessful, setAddSuccessful] = React.useState(false)
   const [timeEntries, setTimeEntries] = React.useState<any[]>([])
@@ -60,16 +68,20 @@ export default function DashboardPage() {
   const loadData = async () => {
     setLoading(true)
     try {
-      const [sumResult, clientsResult, timeResult, payResult] = await Promise.all([
+      const [sumResult, clientsResult, timeResult, payResult, userResult] = await Promise.all([
         getValueSummary(),
         getClients(),
         getTimeEntries(),
         getPayments(),
+        getUser(),
       ])
       if (sumResult.success) setSummary(sumResult.summary)
       if (clientsResult.success) setClients(clientsResult.clients || [])
       if (timeResult.success) setTimeEntries(timeResult.entries || [])
       if (payResult.success) setPayments(payResult.payments || [])
+      if (userResult.success && userResult.user) {
+        setUserProfile(userResult.user)
+      }
     } catch (err) {
       console.error("Dashboard load error:", err)
     } finally {
@@ -153,20 +165,27 @@ export default function DashboardPage() {
 
   React.useEffect(() => {
     if (calcInput.hourlyRate > 0 && calcInput.hoursTracked > 0) {
-      const effectiveRate = calcInput.hourlyRate
+      const billableHours = calcInput.hoursTracked
+      const overheadHours = (calcInput.meetingHours || 0) + (calcInput.emailHours || 0)
+      const totalHours = billableHours + overheadHours
+      const effectiveRate = totalHours > 0 ? (calcInput.hourlyRate * billableHours) / totalHours : 0
+      const targetRate = userProfile?.targetHourlyRate || 75
+      
       let verdict = ''
       if (effectiveRate < 15) {
         verdict = "You're making less than minimum wage. This client is costing you money."
-      } else if (effectiveRate < 40) {
-        verdict = "Warning: You're effectively earning far less than you think."
-      } else if (effectiveRate < 80) {
-        verdict = "You're undercharging. There's room to raise rates."
+      } else if (effectiveRate < targetRate * 0.4) {
+        verdict = `Warning: You're effectively earning far less than you think (target: $${targetRate}/hr).`
+      } else if (effectiveRate < targetRate * 0.8) {
+        verdict = `You're undercharging. There's room to raise rates (target: $${targetRate}/hr).`
+      } else if (effectiveRate >= targetRate) {
+        verdict = `This client is paying well. Keep them! (target: $${targetRate}/hr)`
       } else {
-        verdict = "This client is paying well. Keep them!"
+        verdict = `You're close to your target rate of $${targetRate}/hr. Consider raising rates.`
       }
-      setQuickResults({ effectiveRate, verdict })
+      setQuickResults({ effectiveRate: Math.round(effectiveRate), verdict })
     }
-  }, [calcInput])
+  }, [calcInput, userProfile])
 
   // Don't render until data is loaded
   if (!dataLoaded) {
@@ -185,8 +204,11 @@ export default function DashboardPage() {
       if (result.success) {
         setAddSuccessful(true)
         loadData()
+        const userRate = userProfile?.targetHourlyRate || 75
+        const meetingHours = userProfile?.meetingHoursPerMonth ?? 10
+        const emailHours = userProfile?.emailHoursPerMonth ?? 5
         setTimeout(() => {
-          setCalcInput({ clientName: '', hourlyRate: 100, hoursTracked: 20 })
+          setCalcInput({ clientName: '', hourlyRate: userRate, hoursTracked: 20, meetingHours, emailHours })
           setQuickResults(null)
           setAddSuccessful(false)
         }, 2000)
@@ -208,7 +230,7 @@ export default function DashboardPage() {
           <p className="text-sm text-muted-foreground">Enter ONE client to see if you're actually making what you think.</p>
         </CardHeader>
         <CardContent>
-          <div className="grid gap-4 sm:grid-cols-5">
+          <div className="grid gap-4 sm:grid-cols-7">
             <div>
               <Label className="text-xs">Client Name</Label>
               <Input
@@ -228,11 +250,29 @@ export default function DashboardPage() {
               />
             </div>
             <div>
-              <Label className="text-xs">Hours This Month</Label>
+              <Label className="text-xs">Billable Hours</Label>
               <Input
                 type="number"
                 value={calcInput.hoursTracked}
                 onChange={(e) => setCalcInput({ ...calcInput, hoursTracked: Number(e.target.value) })}
+                className="mt-1"
+              />
+            </div>
+            <div>
+              <Label className="text-xs">Meeting Hrs/Mo</Label>
+              <Input
+                type="number"
+                value={calcInput.meetingHours}
+                onChange={(e) => setCalcInput({ ...calcInput, meetingHours: Number(e.target.value) })}
+                className="mt-1"
+              />
+            </div>
+            <div>
+              <Label className="text-xs">Email Hrs/Mo</Label>
+              <Input
+                type="number"
+                value={calcInput.emailHours}
+                onChange={(e) => setCalcInput({ ...calcInput, emailHours: Number(e.target.value) })}
                 className="mt-1"
               />
             </div>
@@ -248,7 +288,10 @@ export default function DashboardPage() {
             <div className="flex items-end">
               <Button 
                 onClick={() => {
-                  setCalcInput({ clientName: '', hourlyRate: 100, hoursTracked: 20 })
+                  const userRate = userProfile?.targetHourlyRate || 75
+                  const meetingHours = userProfile?.meetingHoursPerMonth ?? 10
+                  const emailHours = userProfile?.emailHoursPerMonth ?? 5
+                  setCalcInput({ clientName: '', hourlyRate: userRate, hoursTracked: 20, meetingHours, emailHours })
                   setQuickResults(null)
                 }}
                 variant="outline" 

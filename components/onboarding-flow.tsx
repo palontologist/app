@@ -60,6 +60,7 @@ export default function OnboardingFlow() {
     try {
       const formData = new FormData()
       formData.append("name", name)
+      formData.append("targetHourlyRate", targetRate)
       formData.append("mission", `Target rate: ${targetRate} | Clients: ${clients.map(c => c.name).join(", ")}`)
       formData.append("worldVision", useCase || "value tracking")
       formData.append("focusAreas", [profession, company].filter(Boolean).join(", "))

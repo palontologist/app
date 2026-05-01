@@ -20,6 +20,9 @@ function mapProfile(row: typeof userProfiles.$inferSelect | undefined) {
     worldVision,
     focusAreas: row.focusAreas,
     onboarded: Boolean(row.onboarded),
+    targetHourlyRate: row.targetHourlyRate ? row.targetHourlyRate / 100 : null,
+    meetingHoursPerMonth: row.meetingHoursPerMonth ?? 10,
+    emailHoursPerMonth: row.emailHoursPerMonth ?? 5,
     createdAt: new Date(row.createdAt),
     updatedAt: new Date(row.updatedAt),
   }
@@ -58,6 +61,9 @@ export async function updateUser(formData: FormData) {
     const mission = (formData.get("mission") as string) || null
     const worldVision = (formData.get("worldVision") as string) || null
     const focusAreas = (formData.get("focusAreas") as string) || null
+    const targetHourlyRate = formData.get("targetHourlyRate") ? parseInt(formData.get("targetHourlyRate") as string) * 100 : null
+    const meetingHoursPerMonth = formData.get("meetingHoursPerMonth") ? parseInt(formData.get("meetingHoursPerMonth") as string) : 10
+    const emailHoursPerMonth = formData.get("emailHoursPerMonth") ? parseInt(formData.get("emailHoursPerMonth") as string) : 5
 
     const existing = await db.select().from(userProfiles).where(eq(userProfiles.userId, userId))
     const timestamp = new Date()
@@ -69,13 +75,26 @@ export async function updateUser(formData: FormData) {
         worldVision,
         focusAreas,
         onboarded: true,
+        targetHourlyRate,
+        meetingHoursPerMonth,
+        emailHoursPerMonth,
         createdAt: timestamp,
         updatedAt: timestamp,
       })
     } else {
       await db
         .update(userProfiles)
-        .set({ name, mission, worldVision, focusAreas, onboarded: true, updatedAt: timestamp })
+        .set({ 
+          name, 
+          mission, 
+          worldVision, 
+          focusAreas, 
+          onboarded: true, 
+          targetHourlyRate,
+          meetingHoursPerMonth,
+          emailHoursPerMonth,
+          updatedAt: timestamp 
+        })
         .where(eq(userProfiles.userId, userId))
     }
 

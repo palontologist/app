@@ -30,7 +30,8 @@ html {
   --font-sans: ${GeistSans.variable};
   --font-mono: ${GeistMono.variable};
 }
-        `}</style>
+        `}        </style>
+        <script async src="https://elu.dev/v1/elu_pk_live_DH4Y0t10wELKCZpLGBPG4SNpNp.js"></script>
         </head>
         <body>
           <ThemeProvider

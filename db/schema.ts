@@ -36,6 +36,9 @@ export const userProfiles = sqliteTable(
     locationGeohash5: text("location_geohash5"), // 5-char geohash (~4.9km x 4.9km)
     locationUpdatedAt: integer("location_updated_at", { mode: "timestamp_ms" }),
     onboarded: integer("onboarded", { mode: "boolean" }).default(false),
+    targetHourlyRate: integer("target_hourly_rate"), // User's target rate in cents (from onboarding)
+    meetingHoursPerMonth: integer("meeting_hours_per_month").default(10), // Avg hours spent on meetings per month
+    emailHoursPerMonth: integer("email_hours_per_month").default(5), // Avg hours spent on emails per month
     currentWorkspaceType: text("current_workspace_type").default("personal"), // "personal" | "startup"
     defaultOrganizationId: text("default_organization_id"), // Clerk org ID for startup workspace
     createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().default(sql`(unixepoch() * 1000)`),

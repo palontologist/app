@@ -28,10 +28,16 @@ export async function completeOnboarding(formData: FormData): Promise<CompleteOn
     console.log('Starting onboarding for user:', userId)
 
     const name = (formData.get("name") as string) || null
-    const mission = (formData.get("mission") as string) || null
+    const rawMission = (formData.get("mission") as string) || null
     const worldVision = (formData.get("worldVision") as string) || null
+    const targetHourlyRate = formData.get("targetHourlyRate") ? parseInt(formData.get("targetHourlyRate") as string) * 100 : null
+    const meetingHoursPerMonth = formData.get("meetingHoursPerMonth") ? parseInt(formData.get("meetingHoursPerMonth") as string) : 10
+    const emailHoursPerMonth = formData.get("emailHoursPerMonth") ? parseInt(formData.get("emailHoursPerMonth") as string) : 5
+    
     const focusAreasRaw = (formData.get("focusAreas") as string) || null
     const focusAreas = parseFocusAreas(focusAreasRaw)
+    
+    const mission = rawMission || null
 
     console.log('Onboarding data:', { name, mission, worldVision, focusAreas })
 
@@ -49,6 +55,9 @@ export async function completeOnboarding(formData: FormData): Promise<CompleteOn
           worldVision,
           focusAreas: focusAreas.join(", "),
           onboarded: true,
+          targetHourlyRate,
+          meetingHoursPerMonth,
+          emailHoursPerMonth,
           updatedAt: new Date(),
         })
       } else {
@@ -61,6 +70,9 @@ export async function completeOnboarding(formData: FormData): Promise<CompleteOn
             worldVision,
             focusAreas: focusAreas.join(", "),
             onboarded: true,
+            targetHourlyRate,
+            meetingHoursPerMonth,
+            emailHoursPerMonth,
             updatedAt: new Date(),
           })
           .where(eq(userProfiles.userId, userId))
